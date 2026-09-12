@@ -1,0 +1,4 @@
+symbol,exchange,segment,asset_type,side,quantity,entry_price,exit_price,entry_time,exit_time,commission,fees,multiplier,notes
+RELIANCE,NSE,Equity,Stocks,Long,10,1400,1418,10/09/2026 09:30:00,10/09/2026 14:20:00,20,15,1,Synthetic example for file format only
+HDFCBANK,NSE,Equity,Stocks,Long,20,1700,1690,10/09/2026 10:15:00,10/09/2026 15:00:00,20,18,1,Synthetic example for file format only
+BTCINR,Crypto,Crypto spot,Crypto,Long,0.01,8000000,8050000,10/09/2026 20:30:00,11/09/2026 01:15:00,40,5,1,Synthetic example with prices and charges recorded in INR

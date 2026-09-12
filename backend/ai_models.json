@@ -1,0 +1,13 @@
+{
+  "standard": "qwen/qwen3.7-flash",
+  "advanced": "z-ai/glm-5.3-flash",
+  "available": [
+    "qwen/qwen3.7-flash",
+    "z-ai/glm-5.3-flash",
+    "deepseek/deepseek-v4.1-flash",
+    "z-ai/glm-flash-latest",
+    "nvidia/nemotron-3.5-lightning"
+  ],
+  "max_output_tokens": 2400,
+  "request_timeout_seconds": 90
+}

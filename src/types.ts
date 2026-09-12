@@ -1,0 +1,21 @@
+export type Account = { id: string; name: string; broker: string; currency: string; initial_balance: number; color: string; is_demo: boolean };
+export type Trade = {
+  exchange: string; segment: string; expiry: string|null; strike: number|null; option_type: string|null; lot_size: number|null;
+  id: string; account_id: string; account_name?: string; symbol: string; asset_type: string; side: string; status: string;
+  entry_price: number; exit_price: number | null; mark_price: number | null; quantity: number; closed_quantity: number; multiplier: number;
+  entry_time: string; exit_time: string | null; commission: number; fees: number; stop_loss: number | null; target_price: number | null;
+  risk_amount: number | null; planned_entry: number | null; setup: string; emotion: string; rating: number; notes: string; tags: string[];
+  attributes: Record<string, any>; mfe: number | null; mae: number | null; is_demo: boolean; net_pnl: number; gross_pnl: number;
+  unrealized_pnl: number | null; r_multiple: number | null; risk: number; hold_minutes: number | null; total_fees: number; pnl_date: string;
+};
+export type Filters = { account_id: string; start: string; end: string; symbol: string; asset_type: string; side: string; status: string; setup: string; emotion: string; tag: string; outcome: string };
+export type MetricMap = Record<string, number | null>;
+export type Group = MetricMap & { name: any };
+export type Check = { id: string; title: string; sample: number; impact: number; confidence: string; status: string; action: string; trade_ids: string[]; net_pnl: number };
+export type Analysis = { metrics: MetricMap; equity: any[]; daily: any[]; groups: Record<string, any[]>; checks: Check[] };
+export type Doc = { id: string; kind: string; data: Record<string, any>; created_at: string };
+export type Plan = {code:string;name:string;monthly_credits:number;trade_limit:number|null;features:string[];model_tier:string};
+export type Price = {code:string;plan_code:string;interval:'month'|'year';amount_paise:number;currency:string;checkout_available:boolean};
+export type Catalog = {plans:Plan[];prices:Price[];tasks:{code:string;name:string;credits:number;enabled:boolean}[];features:Record<string,string>;credit_policy:string;tax_policy:string;legal:Record<string,string>};
+export type Billing = {plan:Plan;credits:{remaining:number;allowance:number;used:number;period:string;resets_at:string};trades:{used:number;limit:number|null};features:string[];ai_available:boolean;access_grant:{plan_code:string;expires_at:string}|null;subscription:{status:string;paid_until:string|null;cancel_at_period_end:boolean;provider_id:string|null}};
+export type Workspace = {admin_role: 'owner'|'admin'|'support'|null;product:{brand_name:string;announcement:string};accounts:Account[];settings:Record<string,any>;currency:string;timezone:string;user:{id:string;name:string;email:string};billing:Billing;catalog:Catalog;markets:{brokers:{id:string;name:string;markets:string[];connection:string}[];exchanges:string[];segments:string[];symbols:string[]}};

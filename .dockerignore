@@ -1,0 +1,16 @@
+.git
+node_modules
+.venv
+dist
+data
+.env
+.env.*
+**/.env
+**/.env.*
+**/__pycache__
+**/*.pyc
+.sites-runtime
+.codex
+.agents
+.openai
+tests

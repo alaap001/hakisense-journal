@@ -18,26 +18,23 @@ Trade entries consume no AI credits. On Free, imports and manual entries share t
 
 | AI task | Initial credit cost |
 | --- | --- |
-| Trade note | 3 |
-| Chat or summary | 5 |
-| Daily preparation | 8 |
-| Query and chart | 10 |
-| Coaching review | 15 |
+| Trade note | 1 |
+| Chat or summary | 2 |
+| Daily preparation | 3 |
+| Query and chart | 4 |
+| Coaching review | 5 |
 
 AI requests reserve credits in the same database transaction that creates a durable job. Duplicate request keys return the same job. Results and conversation messages settle together; failed or abandoned jobs refund once. Provider calls are never automatically retried by the worker. Activity remains accessible after a page reload.
 
+## Administration
+
+Use **Administration** in the sidebar, or `/admin`, after assigning an owner. [ADMIN_GUIDE.md](ADMIN_GUIDE.md) explains first-owner setup, user management, plan/price editing, credits, model routing, product settings and audit history. No account is promoted automatically.
+
 ## Backend model configuration
 
-Edit **`backend/ai_models.json`**, then restart/redeploy both API and worker:
+Models are now managed in **Administration → AI configuration**. PostgreSQL stores a route for every task and tier, including an optional query-planning model, token/time limits, reasoning effort and supplemental instructions. The defaults remain `qwen/qwen3.7-flash` for Standard and `z-ai/glm-5.3-flash` for Advanced. Jobs snapshot that configuration before entering the queue; LangGraph consumes the snapshot.
 
-```json
-{
-  "standard": "qwen/qwen3.7-flash",
-  "advanced": "z-ai/glm-5.3-flash"
-}
-```
-
-The actual file also lists `deepseek/deepseek-v4.1-flash`, `z-ai/glm-flash-latest` and `nvidia/nemotron-3.5-lightning`, plus output/timeout limits. Both selected defaults were found in OpenRouter's catalog. `z-ai/glm-flash-latest` was not listed when checked; verify availability before selecting that optional alias. `AI_STANDARD_MODEL` and `AI_ADVANCED_MODEL` are optional deployment overrides and must be in the configured allowlist. The old `OPENROUTER_MODEL` setting is unused.
+`backend/ai_models.json` and model environment variables are bootstrap inputs, not runtime overrides of the database. Add or select model IDs in the panel. Its provider-catalog search does not make a generation call.
 
 `OPENROUTER_API_KEY` belongs in backend deployment secrets. There is no customer API-key setting. The browser receives only the Supabase publishable key. The server chooses a model from the user's verified plan and snapshots it when the job is submitted.
 
@@ -68,7 +65,7 @@ LangGraph collects the user's scoped journal/history, optionally plans allowlist
 | `backend/markets.py`, `backend/analytics.py`, `backend/simulator.py` | India conventions, journal calculations and replay |
 | `Dockerfile`, `compose.yaml` | Separate API/web, worker and migration processes |
 
-The production API uses PostgreSQL only. SQLite is confined to isolated automated checks. Transactions run as `hakisense_api` with a verified, transaction-local user ID; the connecting `hakisense_app` login cannot bypass RLS. Browser roles cannot access the private `journal` schema. Financial catalog changes require an operator/migration credential; runtime credit history is append-only.
+The production API uses PostgreSQL only. SQLite is confined to isolated automated checks. Transactions run as `hakisense_api` with a verified, transaction-local user ID; the connecting `hakisense_app` login cannot bypass RLS. Browser roles cannot access the private `journal` schema. Financial catalog changes require an authorized admin; runtime credit history is append-only.
 
 ## Preview and basic checks
 
@@ -91,6 +88,6 @@ These checks make no paid model calls. [VALIDATION.md](VALIDATION.md) distinguis
 
 Gross realized P&L is `(exit − entry) × closed quantity × multiplier × direction`; net subtracts the allocated fees. Partial positions record one weighted-average exit, not an execution ledger. Manual marks are required for unrealized P&L. Missing risk does not produce a fabricated R multiple. Entry dates define journal scope; exit dates determine realized calendar results, in IST. Equity excludes deposits, withdrawals, dividends and FX conversion.
 
-Drawdown uses recorded realized exits. The active-day Sharpe proxy is explicitly a proxy, not a conventional calendar-return Sharpe ratio. Coach checks are heuristics; overlapping findings are not additive profit opportunities. Analytics and AI scopes are capped at 20,000 matching trades per request; larger accounts must narrow their date/account filters. Unlimited paid trade storage does not mean unbounded report payloads.
+Drawdown uses recorded realized exits. The active-day Sharpe proxy is explicitly a proxy, not a conventional calendar-return Sharpe ratio. Coach checks are heuristics; overlapping findings are not additive profit opportunities. Analytics and AI scopes default to 20,000 matching trades per request, configurable by an admin; larger accounts must narrow their date/account filters. Unlimited paid trade storage does not mean unbounded report payloads.
 
 Replay reveals candles progressively, uses stop-first handling for ambiguous bars and opening prices for gaps. It does not model exchange liquidity, slippage, partial fills or buying-power enforcement. Saving practice trades is explicit. There is no order placement, live broker synchronization, market/news feed or licensed historical-data feed in this build.

@@ -1,0 +1,24 @@
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ChevronLeft,ChevronRight,NotebookPen } from 'lucide-react';
+import { useData,useStore,qs,money,num,date,today,post,explain } from './lib';
+import type { Trade } from './types';
+import { PageTitle,Panel,Button,IconButton,Pnl,Badge,Metric,Empty,Loading,Modal,Field,ErrorState } from './ui';
+import { TradeTable } from './Journal';
+
+export function Calendar(){
+  const [params]=useSearchParams();
+  const {filters,refresh,notify}=useStore();
+  const {data,error,loading}=useData<Trade[]>('/trades'+qs(filters));
+  const [month,setMonth]=useState((params.get('date')||today()).slice(0,7));
+  const [selected,setSelected]=useState(params.get('date')||''),[note,setNote]=useState(false),[busy,setBusy]=useState(false);
+  const daily=new Map<string,Trade[]>();
+  data?.filter(t=>t.closed_quantity>0).forEach(t=>daily.set(t.pnl_date,[...(daily.get(t.pnl_date)||[]),t]));
+  const start=new Date(month+'-01T00:00:00Z'),year=start.getUTCFullYear(),mo=start.getUTCMonth();
+  const days=new Date(Date.UTC(year,mo+1,0)).getUTCDate(),offset=(start.getUTCDay()+6)%7;
+  const cells=Array.from({length:Math.ceil((days+offset)/7)*7},(_,i)=>i-offset+1);
+  const monthTrades=data?.filter(t=>t.closed_quantity>0&&t.pnl_date.startsWith(month))||[];
+  const pnls=monthTrades.map(t=>t.net_pnl),total=pnls.reduce((s,p)=>s+p,0);
+  const move=(n:number)=>{const d=new Date(Date.UTC(year,mo+n,1));setMonth(d.toISOString().slice(0,7));setSelected('');};
+  return <><PageTitle eyebrow="ONE SESSION AT A TIME" title="Trading calendar" description="Review the rhythm of your trading, one day at a time."/><div className="calendar-controls"><div className="button-row"><IconButton label="Previous month" onClick={()=>move(-1)}><ChevronLeft size={19}/></IconButton><h2>{date(month+'-01',{month:'long',year:'numeric'})}</h2><IconButton label="Next month" onClick={()=>move(1)}><ChevronRight size={19}/></IconButton></div><Button onClick={()=>{setMonth(today().slice(0,7));setSelected(today());}}>Today</Button></div>{error&&<ErrorState message={error}/>}<div className="calendar-summary"><div><span>Monthly net P&L</span><strong><Pnl value={total}/></strong></div><div><span>Realized positions</span><strong>{monthTrades.length}</strong></div><div><span>Win rate</span><strong>{num(pnls.filter(p=>p>0).length/(pnls.length||1)*100,1)}%</strong></div><div><span>Active days</span><strong>{new Set(monthTrades.map(t=>t.pnl_date)).size}</strong></div></div><Panel><div className="calendar-weekdays">{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=><div key={day}>{day}</div>)}</div><div className="calendar-grid">{cells.map((day,i)=>{const iso=`${month}-${String(day).padStart(2,'0')}`,rows=daily.get(iso)||[],pnl=rows.reduce((s,t)=>s+t.net_pnl,0);return day<1||day>days?<div key={i} className="calendar-cell outside"/>:<button key={i} className={`calendar-cell ${rows.length?(pnl>=0?'profit':'loss'):''} ${selected===iso?'selected':''}`} onClick={()=>setSelected(iso)}><div><span className={iso===today()?'today':''}>{day}</span>{rows.length>0&&<span className="day-win-rate">{num(rows.filter(t=>t.net_pnl>0).length/rows.length*100,0)}%</span>}</div>{rows.length>0?<><strong className={pnl>=0?'positive':'negative'}>{money(pnl)}</strong><small>{rows.length} {rows.length===1?'trade':'trades'}</small></>:<small className="no-trades">—</small>}</button>;})}</div></Panel><p className="small muted calendar-note">Results grouped by exit date, UTC. The global date filter selects trades by entry date.</p>{selected&&<Panel className="section-gap" title={date(selected,{weekday:'long',month:'long',day:'numeric'})} aside={<Button onClick={()=>setNote(true)}><NotebookPen size={15}/>Write daily review</Button>}><TradeTable trades={daily.get(selected)||[]} compact/></Panel>}{note&&<Modal title={`Daily review · ${date(selected)}`} onClose={()=>setNote(false)}><form onSubmit={async e=>{e.preventDefault();setBusy(true);const fd=new FormData(e.currentTarget);try{await post('/records/note',{data:{title:fd.get('title'),body:fd.get('body'),date:selected,mood:fd.get('mood')}});setNote(false);refresh();notify('Daily review saved to your notebook');}catch(e){explain(e);}finally{setBusy(false);}}}><div className="modal-body stack"><Field label="Title"><input name="title" defaultValue={`Review · ${date(selected)}`} required/></Field><Field label="How did you feel?"><select name="mood">{['Focused','Confident','Neutral','Anxious','FOMO','Revenge'].map(m=><option key={m}>{m}</option>)}</select></Field><Field label="What did you learn?"><textarea name="body" rows={8} required placeholder="What went well? What will you do differently?"/></Field></div><div className="modal-footer"><Button type="button" onClick={()=>setNote(false)}>Cancel</Button><Button variant="primary" disabled={busy}>{busy?'Saving…':'Save review'}</Button></div></form></Modal>}</>;
+}

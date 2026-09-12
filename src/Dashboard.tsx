@@ -1,0 +1,47 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowUpRight, ArrowRight, Sparkles, SlidersHorizontal, GripVertical, ChevronUp, ChevronDown, X, Plus, Target, CalendarDays } from 'lucide-react';
+import { useData,useStore,qs,money,num,date,put,del,explain } from './lib';
+import type { Analysis,Trade,Doc } from './types';
+import { Button,IconButton,Panel,PageTitle,Metric,Progress,Sparkline,Badge,Modal,Loading,ErrorState,Empty } from './ui';
+import { EquityChart,GroupChart } from './charts';
+import { TradeTable } from './Journal';
+
+const defaultWidgets=['equity','daily','calendar','setups','trades'];
+const labels:Record<string,string>={equity:'Cumulative performance',daily:'Daily net P&L',calendar:'Trading activity',setups:'Performance by setup',trades:'Recent trades'};
+export function Dashboard(){
+  const {workspace,filters,refresh,notify}=useStore();
+  const navigate=useNavigate();
+  const {data:stats,error,loading}=useData<Analysis>('/analytics'+qs(filters));
+  const {data:trades}=useData<Trade[]>('/trades'+qs(filters));
+  const {data:pins}=useData<Doc[]>('/records/pin');
+  const [custom,setCustom]=useState(false),[drag,setDrag]=useState('');
+  const config=workspace?.settings.dashboard;
+  const order:string[]=config?.order||defaultWidgets;
+  const hidden:string[]=config?.hidden||[];
+  async function customize(next:Record<string,any>){try{await put('/settings/dashboard',{data:{order,hidden,...next}});refresh();}catch(e){explain(e);}}
+  const m=stats?.metrics||{};
+  const winShare=m.win_rate||0;
+  const checks=stats?.checks.filter(c=>c.impact>0)||[];
+  const topSetup=stats?.groups.setup.find(s=>s.count>=3);
+  const equity=stats?.equity||[];
+  function widget(id:string){
+    if(id==='equity')return <Panel className="equity-panel" title="Cumulative performance" aside={<Badge tone="green">Net P&L</Badge>}><div className="chart-headline"><strong>{money(m.net_pnl)}</strong><span>across {m.active_days||0} trading days</span></div><EquityChart data={equity}/><div className="chart-footnote"><span><i className="legend-dot"/>Realized equity curve</span><span>Commissions & fees included</span></div></Panel>;
+    if(id==='daily')return <Panel title="Daily net P&L" aside={<span className="muted small">By exit date</span>}><div className="chart-headline"><strong>{money(m.avg_day)}</strong><span>average trading day</span></div><GroupChart data={stats?.daily||[]} height={255}/><div className="chart-footnote"><span><i className="legend-dot"/>Profitable</span><span><i className="legend-dot red"/>Losing</span></div></Panel>;
+    if(id==='calendar')return <Panel title="Trading activity" aside={<Link className="text-link" to="/calendar">View calendar <ArrowUpRight size={15}/></Link>}><Heatmap daily={stats?.daily||[]}/><div className="activity-summary"><div><strong>{m.positive_days||0}</strong><span>green days</span></div><div><strong>{m.negative_days||0}</strong><span>red days</span></div><div><strong>{num((m.positive_days||0)/(m.active_days||1)*100,0)}%</strong><span>profitable days</span></div></div></Panel>;
+    if(id==='setups')return <Panel title="Performance by setup" aside={<Link to="/playbooks" className="text-link">Playbook <ArrowUpRight size={15}/></Link>}><div className="setup-list">{stats?.groups.setup.slice(0,4).map((s,i)=><div key={s.name} className="setup-row"><div className="setup-number">0{i+1}</div><div className="setup-info"><div><strong>{s.name}</strong><span className={s.net_pnl>=0?'positive':'negative'}>{money(s.net_pnl)}</span></div><Progress value={s.win_rate}/><small>{s.count} trades <span>{num(s.win_rate,0)}% win rate</span></small></div></div>)}</div>{!stats?.groups.setup.length&&<Empty title="Add a setup to your trades"/>}</Panel>;
+    if(id==='trades')return <Panel className="span-all" title="Recent trades" aside={<Link to="/trades" className="text-link">All trades <ArrowUpRight size={15}/></Link>}><TradeTable trades={(trades||[]).slice(0,5)} compact/></Panel>;
+    return null;
+  }
+  return <><PageTitle eyebrow="A LITTLE CLARITY. A BETTER NEXT TRADE." title="Performance overview" description="Welcome back. Let’s put your trading in perspective." actions={<Button onClick={()=>setCustom(true)}><SlidersHorizontal size={16}/>Customize</Button>}/>{error&&<ErrorState message={error}/>}<div className="overview-tabs"><span className="active">Overview</span><Link to="/analytics">Detailed analytics</Link><Link to="/calendar">Calendar</Link><div className="overview-note">{workspace?.billing.plan.name} plan · INR</div></div>{loading&&!stats?<Loading/>:<><div className="metric-grid"><Metric label="Net profit & loss" value={money(m.net_pnl)} positive={(m.net_pnl||0)>=0} hint={<><span className={(m.return_pct||0)>=0?'positive':'negative'}>{(m.return_pct||0)>=0?'+':''}{num(m.return_pct)}%</span> on starting balance</>}><Sparkline values={equity.map(d=>d.pnl)}/></Metric><Metric label="Win rate" value={<>{num(m.win_rate,1)}<em>%</em></>} hint={<><b>{m.wins||0}</b> wins / <b>{m.losses||0}</b> losses</>}><div className="win-split"><span style={{width:`${winShare}%`}}/></div></Metric><Metric label="Profit factor" value={m.profit_factor==null&&m.gross_profit?'∞':num(m.profit_factor)} hint="Gross wins ÷ absolute gross losses"><div className="mini-bars">{[45,70,58,83,64,100,82,92].map((v,i)=><i key={i} style={{height:v+'%'}}/>)}</div></Metric><Metric label="Avg. trade expectancy" value={money(m.avg_pnl)} hint={<>{m.count||0} realized positions</>}><Sparkline values={(stats?.daily||[]).slice(-12).map(d=>d.net_pnl)} color="#929db8"/></Metric></div><div className="insight-strip"><div className="insight-symbol"><Sparkles size={21}/></div><div><span className="eyebrow">A PATTERN WORTH YOUR ATTENTION</span><p>{topSetup?<><strong>{topSetup.name}</strong> leads your setups with {money(topSetup.net_pnl)} across {topSetup.count} trades.{checks[0]&&<> Review <strong>{checks[0].title.toLowerCase()}</strong> next.</>}</>:'Tag your trades with a setup to start finding useful patterns.'}</p></div><Link to="/coach">Explore insights <ArrowRight size={17}/></Link></div><div className="dashboard-grid">{order.filter(id=>!hidden.includes(id)).map(id=><div className={id==='trades'?'span-all':'widget'} key={id}>{widget(id)}</div>)}{pins?.map(pin=><Panel key={pin.id} title={pin.data.title||'Saved insight'} aside={<IconButton label="Remove saved insight" onClick={async()=>{try{await del('/records/pin/'+pin.id);refresh();}catch(e){explain(e);}}}><X size={15}/></IconButton>}>{pin.data.chart?<GroupChart data={pin.data.chart.rows} metric={pin.data.chart.metric}/>:<p className="padded preserve-lines">{pin.data.body}</p>}<p className="padded small muted">Saved snapshot · {date(pin.created_at)}</p></Panel>)}</div></>}{custom&&<Modal title="Make this overview yours" onClose={()=>setCustom(false)}><div className="modal-body"><p className="muted">Choose what you see and drag to rearrange. Your layout is saved to your account.</p><div className="widget-options">{order.map((id,i)=><div key={id} className="widget-option" draggable onDragStart={()=>setDrag(id)} onDragOver={e=>e.preventDefault()} onDrop={()=>{const next=order.filter(x=>x!==drag);next.splice(i,0,drag);void customize({order:next});}}><GripVertical size={16}/><label><input type="checkbox" checked={!hidden.includes(id)} onChange={()=>void customize({hidden:hidden.includes(id)?hidden.filter(x=>x!==id):[...hidden,id]})}/>{labels[id]}</label><IconButton label={`Move ${labels[id]} up`} disabled={i===0} onClick={()=>{const next=[...order];[next[i-1],next[i]]=[next[i],next[i-1]];void customize({order:next});}}><ChevronUp size={16}/></IconButton><IconButton label={`Move ${labels[id]} down`} disabled={i===order.length-1} onClick={()=>{const next=[...order];[next[i+1],next[i]]=[next[i],next[i+1]];void customize({order:next});}}><ChevronDown size={16}/></IconButton></div>)}</div></div><div className="modal-footer"><Button onClick={()=>void customize({order:defaultWidgets,hidden:[]})}>Reset layout</Button><Button variant="primary" onClick={()=>setCustom(false)}>Done</Button></div></Modal>}</>;
+}
+
+function Heatmap({daily}:{daily:any[]}){
+  const navigate=useNavigate();const setFilter=useStore(s=>s.setFilter);
+  const latest=daily.at(-1)?.date||new Date().toISOString().slice(0,10);
+  const end=new Date(latest+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+(6-end.getUTCDay()));
+  const lookup=new Map(daily.map(d=>[d.date,d]));
+  const max=Math.max(1,...daily.map(d=>Math.abs(d.net_pnl)));
+  const cells=Array.from({length:91},(_,i)=>{const d=new Date(end);d.setUTCDate(d.getUTCDate()-90+i);const iso=d.toISOString().slice(0,10);return {date:iso,...lookup.get(iso)};});
+  return <div className="heatmap-wrap"><div className="heatmap-labels"><span>Last 13 weeks of activity</span><span>Less <i/><i/><i/> More</span></div><div className="heatmap-body"><div className="heatmap-days"><span>M</span><span>W</span><span>F</span></div><div className="heatmap">{cells.map(c=><button key={c.date} title={`${date(c.date)}: ${money(c.net_pnl||0)} · ${c.count||0} trades`} aria-label={`View trades on ${c.date}`} style={{background:c.count?(c.net_pnl>=0?`rgba(126, 166, 82, ${.3+Math.abs(c.net_pnl)/max*.65})`:`rgba(204, 122, 107, ${.25+Math.abs(c.net_pnl)/max*.65})`):'#eef1ea'}} onClick={()=>navigate('/calendar?date='+c.date)}/>)}</div></div><div className="heatmap-range"><span>{date(cells[0].date,{month:'short'})}</span><span>{date(cells[45].date,{month:'short'})}</span><span>{date(latest,{month:'short'})}</span></div></div>;
+}

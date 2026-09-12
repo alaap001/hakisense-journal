@@ -1,0 +1,62 @@
+# Run with: docker compose --env-file backend/.env up -d
+# Explicit environment lists keep migration/admin credentials out of web and worker containers.
+x-web-environment: &web-environment
+  APP_ENV: production
+  APP_ORIGIN: ${APP_ORIGIN:?Set the HTTPS application origin}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Set application hosts including 127.0.0.1 for health checks}
+  DATABASE_URL: ${DATABASE_URL:?Set the restricted runtime connection}
+  SUPABASE_URL: ${SUPABASE_URL}
+  SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+  RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+  RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+  RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+  CHECKOUT_ENABLED: ${CHECKOUT_ENABLED:-false}
+  LEGAL_BUSINESS_NAME: ${LEGAL_BUSINESS_NAME:-}
+  LEGAL_BUSINESS_ADDRESS: ${LEGAL_BUSINESS_ADDRESS:-}
+  SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+  TERMS_URL: ${TERMS_URL:-}
+  PRIVACY_POLICY_URL: ${PRIVACY_POLICY_URL:-}
+  REFUND_POLICY_URL: ${REFUND_POLICY_URL:-}
+services:
+  web:
+    build: .
+    image: hakisense-journal:production
+    environment: *web-environment
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 240s
+  worker:
+    image: hakisense-journal:production
+    environment:
+      APP_ENV: production
+      APP_ORIGIN: ${APP_ORIGIN}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      DATABASE_URL: ${DATABASE_URL}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    command: ["python", "-m", "backend.worker"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      disable: true
+    stop_grace_period: 240s
+  migrate:
+    image: hakisense-journal:production
+    environment:
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:-${DIRECT_URL:-}}
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    profiles: ["tools"]
