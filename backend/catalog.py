@@ -1,16 +1,4 @@
-"""Initial commercial catalog. Migrations seed it; runtime reads PostgreSQL."""
-FREE_FEATURES = ['journal', 'analytics', 'calendar', 'notebook', 'import_export', 'accounts']
-PAID_FEATURES = FREE_FEATURES + ['replay', 'playbooks', 'saved_views']
-PLANS = [
-    {'code': 'free', 'name': 'Free', 'monthly_credits': 50, 'trade_limit': 100, 'model_tier': 'standard', 'features': FREE_FEATURES, 'active': True},
-    {'code': 'pro', 'name': 'Pro', 'monthly_credits': 1000, 'trade_limit': None, 'model_tier': 'standard', 'features': PAID_FEATURES, 'active': True},
-    {'code': 'advanced', 'name': 'Advanced', 'monthly_credits': 8000, 'trade_limit': None, 'model_tier': 'advanced', 'features': PAID_FEATURES, 'active': True},
-]
-PRICES = [
-    {'code': 'pro_monthly', 'plan_code': 'pro', 'interval': 'month', 'amount_paise': 40000, 'currency': 'INR', 'tax_inclusive': True, 'active': True},
-    {'code': 'pro_annual', 'plan_code': 'pro', 'interval': 'year', 'amount_paise': 249900, 'currency': 'INR', 'tax_inclusive': True, 'active': True},
-    {'code': 'advanced_annual', 'plan_code': 'advanced', 'interval': 'year', 'amount_paise': 899900, 'currency': 'INR', 'tax_inclusive': True, 'active': True},
-]
+"""Bootstrap credit prices. Runtime values are read from PostgreSQL."""
 TASKS = [
     {'code': 'chat', 'name': 'Ask your journal', 'credits': 2, 'enabled': True},
     {'code': 'trade_note', 'name': 'Draft a trade review', 'credits': 1, 'enabled': True},
@@ -22,3 +10,11 @@ TASKS = [
 FEATURE_NAMES = {'journal': 'Trade journal', 'analytics': 'Analytics & risk tools', 'calendar': 'Trading calendar',
                  'notebook': 'Notebook', 'import_export': 'File imports & exports', 'accounts': 'Broker accounts',
                  'replay': 'Market replay', 'playbooks': 'Strategy playbooks', 'saved_views': 'Saved journal views'}
+UPCOMING_FEATURE_NAMES = {'deep_stock_research': 'Deep Researched Stock Analysis'}
+
+PACKS = [
+    {'code': 'first_recharge', 'name': 'First recharge', 'credits': 50, 'amount_paise': 2100, 'first_purchase_only': True, 'sort_order': 0},
+    {'code': 'starter_50', 'name': 'Starter', 'credits': 50, 'amount_paise': 5000, 'sort_order': 1},
+    {'code': 'review_600', 'name': 'Review', 'credits': 600, 'amount_paise': 19900, 'sort_order': 2},
+    {'code': 'deep_dive_4000', 'name': 'Deep dive', 'credits': 4000, 'amount_paise': 50000, 'sort_order': 3},
+]

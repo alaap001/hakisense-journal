@@ -10,7 +10,7 @@ connection=psycopg.connect(config.migration_url,sslmode='require',connect_timeou
 try:
     with connection.cursor() as c:
         c.execute('SELECT version_num FROM journal.alembic_version')
-        assert c.fetchone()[0]=='0006_user_directory'
+        assert c.fetchone()[0]=='0008_pay_as_you_go'
         c.execute('SELECT code,credits FROM journal.ai_tasks ORDER BY code')
         assert dict(c.fetchall())=={'chat':2,'coach':5,'daily':3,'query':4,'summary':2,'trade_note':1}
         c.execute('SELECT count(*) FROM journal.ai_routes')
@@ -24,13 +24,13 @@ try:
         c.execute("INSERT INTO journal.admin_members(user_id,role) VALUES (%s,'owner'),(%s,'support')",(owner,support))
         c.execute('SET LOCAL ROLE hakisense_admin')
         c.execute("SELECT set_config('app.actor_id',%s,true)",(ordinary,))
-        c.execute('SELECT count(*) FROM journal.plans')
+        c.execute('SELECT count(*) FROM journal.credit_packs')
         assert c.fetchone()[0]==0
         c.execute("UPDATE journal.ai_tasks SET credits=999 WHERE code='chat'")
         assert c.rowcount==0
         c.execute("SELECT set_config('app.actor_id',%s,true)",(support,))
-        c.execute('SELECT count(*) FROM journal.plans')
-        assert c.fetchone()[0]>=3
+        c.execute('SELECT count(*) FROM journal.credit_packs')
+        assert c.fetchone()[0]>=4
         c.execute("UPDATE journal.ai_tasks SET credits=999 WHERE code='chat'")
         assert c.rowcount==0
         c.execute("SELECT set_config('app.actor_id',%s,true)",(owner,))
@@ -49,7 +49,7 @@ try:
         denied('SELECT encrypted_password FROM auth.users LIMIT 1')
         denied('SELECT content FROM journal.messages LIMIT 1')
         denied('SELECT request FROM journal.ai_jobs LIMIT 1')
-        denied("UPDATE journal.credit_entries SET reason='cannot rewrite history'")
+        denied("UPDATE journal.wallet_entries SET reason='cannot rewrite history'")
         denied("UPDATE journal.admin_audit SET reason='cannot rewrite history'")
         # Removing membership takes effect in the following statement, without a JWT refresh.
         c.execute('RESET ROLE')

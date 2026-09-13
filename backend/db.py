@@ -100,7 +100,7 @@ class Account(Tenant, Base):
 
 class Trade(Tenant, Base):
     __tablename__ = 'trades'
-    __table_args__ = (ForeignKeyConstraint(['user_id', 'account_id'], ['journal.accounts.user_id', 'journal.accounts.id']), UniqueConstraint('user_id', 'fingerprint'), Index('ix_trade_user_entry', 'user_id', 'entry_time'))
+    __table_args__ = (ForeignKeyConstraint(['user_id', 'account_id'], ['journal.accounts.user_id', 'journal.accounts.id']), ForeignKeyConstraint(['user_id','playbook_id'],['journal.records.user_id','journal.records.id']), UniqueConstraint('user_id', 'fingerprint'), Index('ix_trade_user_entry', 'user_id', 'entry_time'))
     exchange: Mapped[str] = mapped_column(String, default='NSE')
     segment: Mapped[str] = mapped_column(String, default='Equity')
     expiry: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -128,6 +128,8 @@ class Trade(Tenant, Base):
     risk_amount: Mapped[float | None] = mapped_column(Numeric(28, 8, asdecimal=False), nullable=True)
     planned_entry: Mapped[float | None] = mapped_column(Numeric(28, 8, asdecimal=False), nullable=True)
     setup: Mapped[str] = mapped_column(String, default='Uncategorized')
+    playbook_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    playbook_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, server_default='{}')
     emotion: Mapped[str] = mapped_column(String, default='Neutral')
     rating: Mapped[int] = mapped_column(default=3)
     notes: Mapped[str] = mapped_column(Text, default='')
@@ -142,6 +144,7 @@ class Trade(Tenant, Base):
 
 class Record(Tenant, Base):
     __tablename__ = 'records'
+    __table_args__ = (UniqueConstraint('user_id','id'),)
     id: Mapped[str] = mapped_column(String, primary_key=True, default=uid)
     kind: Mapped[str] = mapped_column(String, index=True)
     data: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -173,27 +176,8 @@ class Profile(Tenant, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-class Plan(Base):
-    __tablename__ = 'plans'
-    code: Mapped[str] = mapped_column(String, primary_key=True)
-    name: Mapped[str] = mapped_column(String)
-    monthly_credits: Mapped[int] = mapped_column(Integer)
-    trade_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    model_tier: Mapped[str] = mapped_column(String, default='standard')
-    features: Mapped[list] = mapped_column(JSON, default=list)
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Price(Base):
-    __tablename__ = 'prices'
-    code: Mapped[str] = mapped_column(String, primary_key=True)
-    plan_code: Mapped[str] = mapped_column(String)
-    interval: Mapped[str] = mapped_column(String)
-    amount_paise: Mapped[int] = mapped_column(Integer)
-    currency: Mapped[str] = mapped_column(String, default='INR')
-    tax_inclusive: Mapped[bool] = mapped_column(Boolean, default=True)
-    provider_plan_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class AITask(Base):
@@ -204,44 +188,10 @@ class AITask(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class Subscription(Tenant, Base):
-    __tablename__ = 'subscriptions'
-    user_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
-    plan_code: Mapped[str] = mapped_column(String, default='free')
-    price_code: Mapped[str | None] = mapped_column(String, nullable=True)
-    provider_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
-    status: Mapped[str] = mapped_column(String, default='free')
-    paid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_payment_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-class Wallet(Tenant, Base):
-    __tablename__ = 'wallets'
-    __table_args__ = (CheckConstraint('balance >= 0'), CheckConstraint('trade_count >= 0'))
-    user_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
-    month: Mapped[str] = mapped_column(String(7), primary_key=True)
-    plan_code: Mapped[str] = mapped_column(String)
-    allocation: Mapped[int] = mapped_column(Integer)
-    adjustment: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
-    bonus_spent: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
-    balance: Mapped[int] = mapped_column(Integer)
-    spent: Mapped[int] = mapped_column(Integer, default=0)
-    trade_count: Mapped[int] = mapped_column(Integer, default=0)
 
 
-class CreditEntry(Tenant, Base):
-    __tablename__ = 'credit_entries'
-    __table_args__ = (UniqueConstraint('user_id', 'event_key'),)
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=uid)
-    event_key: Mapped[str] = mapped_column(String)
-    month: Mapped[str] = mapped_column(String(7))
-    amount: Mapped[int] = mapped_column(Integer)
-    balance_after: Mapped[int] = mapped_column(Integer)
-    reason: Mapped[str] = mapped_column(String)
-    job_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class AIJob(Tenant, Base):
@@ -274,37 +224,10 @@ class JobQueue(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-class Checkout(Tenant, Base):
-    __tablename__ = 'checkouts'
-    __table_args__ = (UniqueConstraint('user_id', 'idempotency_key'),)
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=uid)
-    idempotency_key: Mapped[str] = mapped_column(String)
-    price_code: Mapped[str] = mapped_column(String)
-    provider_id: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
-    status: Mapped[str] = mapped_column(String, default='creating')
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-class SubscriptionIndex(Base):
-    __tablename__ = 'subscription_index'
-    provider_id: Mapped[str] = mapped_column(String, primary_key=True)
-    user_id: Mapped[str] = mapped_column(Uuid(as_uuid=False))
-    price_code: Mapped[str] = mapped_column(String)
-    amount_paise: Mapped[int] = mapped_column(Integer)
-    provider_plan_id: Mapped[str] = mapped_column(String)
-    payment_url: Mapped[str] = mapped_column(String)
 
 
-class Payment(Tenant, Base):
-    __tablename__ = 'payments'
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    provider_subscription_id: Mapped[str] = mapped_column(String)
-    amount_paise: Mapped[int] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(String)
-    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    price_code: Mapped[str] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class WebhookEvent(Base):
@@ -389,14 +312,87 @@ class AIRoute(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class AccessGrant(Tenant, Base):
-    __tablename__ = 'access_grants'
-    __table_args__ = (ForeignKeyConstraint(['plan_code'], ['journal.plans.code']),)
+
+
+class CreditWallet(Tenant, Base):
+    __tablename__ = 'credit_wallets'
+    __table_args__ = (CheckConstraint('free_balance >= 0 AND free_allocation >= 0 AND spent >= 0 AND revision >= 0'),
+                     CheckConstraint('balance = free_balance + purchased_balance'))
     user_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
-    plan_code: Mapped[str] = mapped_column(String)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    reason: Mapped[str] = mapped_column(String(1000))
+    free_month: Mapped[str] = mapped_column(String(7))
+    free_allocation: Mapped[int] = mapped_column(Integer, default=0)
+    free_balance: Mapped[int] = mapped_column(Integer, default=0)
+    purchased_balance: Mapped[int] = mapped_column(Integer, default=0)
+    # May be negative ONLY after a refund/chargeback. Ordinary spending cannot create debt.
+    balance: Mapped[int] = mapped_column(Integer, default=0)
+    spent: Mapped[int] = mapped_column(Integer, default=0)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    first_purchase_id: Mapped[str | None] = mapped_column(String, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WalletEntry(Tenant, Base):
+    __tablename__ = 'wallet_entries'
+    __table_args__ = (UniqueConstraint('user_id', 'event_key'), UniqueConstraint('user_id', 'sequence'),
+                     CheckConstraint('amount = free_delta + purchased_delta'))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=uid)
+    sequence: Mapped[int] = mapped_column(Integer)
+    event_key: Mapped[str] = mapped_column(String(200))
+    amount: Mapped[int] = mapped_column(Integer)
+    free_delta: Mapped[int] = mapped_column(Integer)
+    purchased_delta: Mapped[int] = mapped_column(Integer)
+    balance_after: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(String(1000))
+    details: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CreditPack(Base):
+    __tablename__ = 'credit_packs'
+    __table_args__ = (CheckConstraint("amount_paise > 0 AND credits > 0 AND currency = 'INR'"),)
+    code: Mapped[str] = mapped_column(String(80), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    credits: Mapped[int] = mapped_column(Integer)
+    amount_paise: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3), default='INR')
+    first_purchase_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CreditPurchase(Tenant, Base):
+    __tablename__ = 'credit_purchases'
+    __table_args__ = (UniqueConstraint('user_id', 'idempotency_key'),
+        CheckConstraint('amount_paise > 0 AND credits > 0 AND credited >= 0 AND credited <= credits'),
+        Index('ix_credit_purchases_pending', 'status', 'checked_at'))
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=uid)
+    idempotency_key: Mapped[str] = mapped_column(String(100))
+    pack_code: Mapped[str] = mapped_column(String(80))
+    pack_name: Mapped[str] = mapped_column(String(100))
+    amount_paise: Mapped[int] = mapped_column(Integer)
+    credits: Mapped[int] = mapped_column(Integer)
+    first_purchase_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    provider_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
+    payment_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
+    payment_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default='creating')
+    credited: Mapped[int] = mapped_column(Integer, default=0)
+    refunded_paise: Mapped[int] = mapped_column(Integer, default=0)
+    dispute_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    dispute_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    settlement_version: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# Minimal trusted webhook/worker routing; never exposes journal content or email.
+class PurchaseIndex(Base):
+    __tablename__ = 'purchase_index'
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(Uuid(as_uuid=False))
+    provider_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
+    payment_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 
 def serialize(obj):

@@ -4,9 +4,10 @@ import json
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, delete
 from fastapi import APIRouter, Depends, Header, HTTPException
-from .db import database, AIJob, AITask, JobQueue, Wallet, CreditEntry, Message, Trade, uid, utcnow, serialize
+from .db import database, AIJob, AITask, JobQueue, Message, Trade, uid, utcnow, serialize
 from .auth import require_user, Identity, get_db
-from .entitlements import wallet, lock_user, aware, available_credits
+from .entitlements import lock_user, aware
+from .wallet import get_wallet, spend, refund_spend
 from .security import rate_limit
 from .schemas import AIRequest
 from .config import config
@@ -34,11 +35,12 @@ def enqueue(db, payload, key):
     task = db.get(AITask, payload.mode)
     if not task or not task.enabled:
         raise HTTPException(403, 'This AI task is not currently available.')
-    if payload.expected_credits != task.credits:
-        raise HTTPException(409, {'code':'price_changed','message':'The credit price has changed. Refresh and review the current price before trying again.'})
-    row, plan = wallet(db)
     product = settings(db)
-    route = routing(db, task.code, plan.model_tier)
+    cost = task.credits * (product.advanced_credit_multiplier if payload.model_tier == 'advanced' else 1)
+    if payload.expected_credits != cost:
+        raise HTTPException(409, {'code':'price_changed','message':'The credit price has changed. Refresh and review the current price before trying again.'})
+    row = get_wallet(db)
+    route = routing(db, task.code, payload.model_tier)
     model = route['model_id']
     if not config.openrouter_key or not product.ai_enabled:
         raise HTTPException(503, 'AI is temporarily unavailable. No credits were used.')
@@ -46,22 +48,14 @@ def enqueue(db, payload, key):
         raise HTTPException(404, 'Trade not found.')
     if payload.thread_id and not db.scalar(select(Message.id).where(Message.thread_id == payload.thread_id).limit(1)):
         raise HTTPException(404, 'Conversation not found.')
-    if row.balance < task.credits:
-        raise HTTPException(402, {'code': 'insufficient_credits', 'message': f'This task needs {task.credits} credits. You have {row.balance} remaining.', 'upgrade': True})
     if db.scalar(select(AIJob.id).where(AIJob.status.in_(['queued', 'running'])).limit(1)):
         raise HTTPException(409, 'A review is already in progress. Open AI activity to view it.')
     rate_limit(db, 'ai:' + db.info['user_id'], product.ai_requests_per_minute, 60)
     job_id = uid()
-    base_available = max(0, row.allocation - (row.spent - row.bonus_spent) + min(0, row.adjustment - row.bonus_spent))
-    bonus_credits = max(0, task.credits - base_available)
-    row.balance -= task.credits
-    row.spent += task.credits
-    row.bonus_spent += bonus_credits
+    spend(db, 'reserve:'+job_id, cost, task.name, {'job_id':job_id, 'tier':payload.model_tier})
     job = AIJob(id=job_id, idempotency_key=key, request_hash=digest, request=body, task_code=task.code,
-                credits=task.credits, month=row.month, model=model, routing_config=route, bonus_credits=bonus_credits)
+                credits=cost, month=row.free_month, model=model, routing_config=route, bonus_credits=0)
     db.add(job)
-    db.add(CreditEntry(event_key='reserve:' + job_id, month=row.month, amount=-task.credits,
-                       balance_after=row.balance, reason=task.name, job_id=job_id))
     db.add(JobQueue(job_id=job_id, user_id=db.info['user_id']))
     db.flush()
     return job
@@ -106,14 +100,7 @@ def finish(user_id, job_id, result=None, error=None):
             db.execute(delete(JobQueue).where(JobQueue.job_id == job_id))
             return
         if error:
-            row = db.get(Wallet, (user_id, job.month))
-            row.spent = max(0, row.spent - job.credits)
-            row.bonus_spent = max(0, row.bonus_spent - job.bonus_credits)
-            new_balance = available_credits(row)
-            refund = new_balance - row.balance
-            row.balance = new_balance
-            db.add(CreditEntry(event_key='refund:' + job_id, month=job.month, amount=refund,
-                               balance_after=row.balance, reason='AI task refunded', job_id=job_id))
+            refund_spend(db, 'reserve:'+job_id, 'refund:'+job_id, 'AI task refunded')
             job.status, job.error = 'failed', error
         else:
             # Message persistence and credit settlement share one commit.

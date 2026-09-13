@@ -46,7 +46,7 @@ class Administration(unittest.TestCase):
         self.assertEqual(self.client.get('/api/admin/catalog').json()['tasks'][0]['credits'],1)
         self.assertEqual(len(self.client.get('/api/admin/audit').json()['items']),1)
 
-    def test_credit_adjustment_preserves_refund_and_plan_allowance(self):
+    def test_credit_adjustment_preserves_refund(self):
         self.role()
         result=self.change('/users/'+self.a+'/credits',{'amount':20},method='POST')
         self.assertEqual(result.status_code,200,result.text)
@@ -55,13 +55,9 @@ class Administration(unittest.TestCase):
         self.assertEqual(job.status_code,202,job.text)
         finish(self.a,job.json()['id'],error='Fixture failure')
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],70)
-        result=self.change('/users/'+self.a+'/plan',{'plan_code':'pro','expires_at':(store.utcnow()+timedelta(days=10)).isoformat()},method='POST',key='plan-grant-fixture')
-        self.assertEqual(result.status_code,200,result.text)
-        self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],1020)
-        self.assertEqual(self.client.get('/api/billing/me').json()['subscription']['status'],'free')
         result=self.change('/users/'+self.a+'/credits',{'amount':-2000},method='POST',key='bad-credit-fixture')
         self.assertEqual(result.status_code,400)
-        self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],1020)
+        self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],70)
 
     def test_routing_snapshot_survives_admin_change_and_zero_cost(self):
         self.role()
@@ -84,28 +80,23 @@ class Administration(unittest.TestCase):
             self.assertEqual(db.get(store.AIJob,job.json()['id']).model,'deepseek/deepseek-v4.1-flash')
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],50)
 
-    def test_last_owner_and_used_price_are_protected(self):
+    def test_last_owner_protected_and_recurring_prices_removed(self):
         self.role()
         self.assertEqual(self.change('/staff/'+self.a,{'role':'support','active':True}).status_code,409)
-        with store.database(self.a) as db:
-            db.add(store.Checkout(idempotency_key='old-checkout',price_code='pro_annual'))
-        result=self.change('/prices/pro_annual',{'revision':1,'plan_code':'pro','interval':'year','amount_paise':1_000_00,'provider_plan_id':None,'active':True},key='price-change-fixture')
-        self.assertEqual(result.status_code,409)
+        self.assertIn(self.change('/prices/pro_annual',{'revision':1}).status_code,(404,405))
         self.assertEqual(self.change('/users/'+self.a,{'display_name':'Fixture','suspended':True},key='suspend-self-fixture').status_code,400)
 
-    def test_bonus_after_downgrade_refunds_without_forgiving_prior_usage(self):
+    def test_added_credits_refund_without_forgiving_prior_usage(self):
         self.role()
         with store.database(self.a) as db:
-            row=db.get(store.Wallet,(self.a,core.month_key()))
-            row.spent,row.balance=950,0
+            from backend.wallet import spend
+            spend(db,'fixture-spend',50,'Fixture existing usage')
         self.assertEqual(self.change('/users/'+self.a+'/credits',{'amount':20},method='POST').status_code,200)
         job=self.client.post('/api/ai/query',json={'message':'Review','mode':'chat','expected_credits':2},headers={'Idempotency-Key':'bonus-refund-fixture'})
         self.assertEqual(job.status_code,202,job.text)
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],18)
         finish(self.a,job.json()['id'],error='Fixture failure')
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],20)
-        self.change('/users/'+self.a+'/plan',{'plan_code':'pro','expires_at':(store.utcnow()+timedelta(days=10)).isoformat()},method='POST',key='bonus-upgrade-fixture')
-        self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],70)
 
     def test_langgraph_passes_saved_route_to_both_model_calls(self):
         import asyncio

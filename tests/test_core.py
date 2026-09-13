@@ -19,15 +19,16 @@ from sqlalchemy import select, func
 from backend import db as store
 from backend.main import app
 from backend.auth import require_user, Identity
-from backend.catalog import PLANS, PRICES, TASKS
+from backend.catalog import TASKS, PACKS
 from backend.config import AI_MODELS
 from backend.runtime_settings import defaults
-from backend.entitlements import provision, snapshot, consume_trades, wallet
+from backend.entitlements import provision, snapshot, consume_trades
 from backend.jobs import enqueue, finish
 from backend.schemas import AIRequest, TradeInput
 from backend.analytics import enrich, apply_filters, group_rows
 from backend.markets import IST, month_key
-from backend.billing import apply_verified, verify_invoice, process_event
+from backend.billing import process_event
+from backend.wallet import get_wallet
 
 
 class ProductionCore(unittest.TestCase):
@@ -35,8 +36,7 @@ class ProductionCore(unittest.TestCase):
         store.Base.metadata.drop_all(store.engine)
         store.init_db()
         with store.Session() as db:
-            db.add_all(store.Plan(**p) for p in PLANS)
-            db.add_all(store.Price(**p) for p in PRICES)
+            db.add_all(store.CreditPack(**p) for p in PACKS)
             db.add_all(store.AITask(**p) for p in TASKS)
             db.add(store.PlatformConfig(key='product',value=defaults(),revision=1))
             db.add_all(store.AIModel(id=m,name=m) for m in AI_MODELS['available'])
@@ -66,6 +66,36 @@ class ProductionCore(unittest.TestCase):
         self.assertIn(self.client.post('/api/settings/openrouter', json={'api_key': 'x'}).status_code, (404, 405))
         self.assertIn(self.client.post('/api/backup/restore', json={}).status_code, (404, 405))
 
+    def test_account_preferences_persist_and_stay_private(self):
+        preferences = {'landing_page': '/trades', 'default_account_id': self.account,
+                       'date_range': '30', 'compact_tables': True, 'reduce_motion': True}
+        saved = self.client.put('/api/settings/preferences', json={'data': preferences})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(self.client.get('/api/workspace').json()['settings']['preferences'], saved.json()['preferences'])
+        self.assertEqual(self.client.put('/api/profile', json={'data': {'display_name': '  My journal  '}}).status_code, 200)
+        self.assertEqual(self.client.get('/api/workspace').json()['user']['name'], 'My journal')
+        self.actor = self.b
+        other = self.client.get('/api/workspace').json()['settings']['preferences']
+        self.assertEqual(other['landing_page'], '/overview')
+        self.assertIsNone(other['default_account_id'])
+        self.assertEqual(self.client.put('/api/settings/preferences', json={'data': preferences}).status_code, 400)
+        self.assertEqual(self.client.get('/api/workspace').json()['settings']['preferences'], other)
+
+    def test_account_settings_reject_invalid_and_privileged_fields(self):
+        for data in ({'landing_page': 'https://example.com'}, {'compact_tables': 'false'},
+                     {'currency': 'USD'}, {'admin_role': 'owner'}, {'date_range': 'custom'}):
+            self.assertEqual(self.client.put('/api/settings/preferences', json={'data': data}).status_code, 422)
+        for data in ({'display_name': '   '}, {'display_name': {'name': 'unexpected'}},
+                     {'display_name': 'Name', 'role': 'owner'}):
+            self.assertEqual(self.client.put('/api/profile', json={'data': data}).status_code, 422)
+        from backend.preferences import effective_preferences
+        old = effective_preferences({'language': 'unsupported', 'landing_page': '//example.com',
+                                     'default_account_id': 'removed-account', 'compact_tables': True}, set())
+        self.assertEqual(old['language'], 'en')
+        self.assertEqual(old['landing_page'], '/overview')
+        self.assertIsNone(old['default_account_id'])
+        self.assertTrue(old['compact_tables'])
+
     def test_user_isolation_for_read_write_and_export(self):
         created = self.client.post('/api/trades', json=self.trade())
         self.assertEqual(created.status_code, 200, created.text)
@@ -78,22 +108,13 @@ class ProductionCore(unittest.TestCase):
         self.assertEqual(self.client.delete('/api/trades/' + trade_id).status_code, 404)
         self.assertNotIn(trade_id, self.client.get('/api/backup').text)
 
-    def test_free_trade_limit_is_atomic_and_deletion_does_not_refund(self):
-        payload = {'account_id': self.account, 'mapping': {}, 'rows': [{} for _ in range(101)], 'defaults': self.trade()}
-        # Unique symbols avoid import deduplication, and one oversized batch must commit zero.
-        payload['mapping'] = {'symbol': 'symbol'}
-        payload['rows'] = [{'symbol': 'TEST' + str(i)} for i in range(101)]
-        response = self.client.post('/api/import/commit', json=payload)
-        self.assertEqual(response.status_code, 402, response.text)
-        self.assertEqual(self.client.get('/api/trades').json(), [])
-        payload['rows'] = payload['rows'][:100]
-        result = self.client.post('/api/import/commit', json=payload)
-        self.assertEqual(result.status_code, 200, result.text)
-        self.assertEqual(result.json()['imported'], 100)
-        rows = self.client.get('/api/trades').json()
-        self.client.delete('/api/trades/' + rows[0]['id'])
-        self.assertEqual(self.client.post('/api/trades', json=self.trade()).status_code, 402)
-        self.assertEqual(self.client.get('/api/billing/me').json()['trades']['used'], 100)
+    def test_free_trades_are_unlimited_and_do_not_spend_credits(self):
+        payload={'account_id':self.account,'mapping':{'symbol':'symbol'},'rows':[{'symbol':'TEST'+str(i)} for i in range(101)],'defaults':self.trade()}
+        response=self.client.post('/api/import/commit',json=payload)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual(response.json()['imported'],101)
+        self.assertEqual(self.client.post('/api/trades',json=self.trade()).status_code,200)
+        self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],50)
 
     def test_credit_reservation_idempotency_and_refund_once(self):
         payload = {'message': 'Review my journal', 'mode': 'chat', 'expected_credits': 2}
@@ -112,7 +133,7 @@ class ProductionCore(unittest.TestCase):
         finish(self.a, first.json()['id'], error='Fixture failure')
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'], 50)
         with store.database(self.a) as db:
-            self.assertEqual(db.scalar(select(func.count()).select_from(store.CreditEntry).where(store.CreditEntry.event_key.like('refund:%'))), 1)
+            self.assertEqual(db.scalar(select(func.count()).select_from(store.WalletEntry).where(store.WalletEntry.event_key.like('refund:%'))), 1)
 
     def test_ai_result_saved_once_and_job_is_private(self):
         response = self.client.post('/api/ai/query', json={'message': 'Review', 'mode': 'trade_note', 'expected_credits': 1}, headers={'Idempotency-Key': 'success-request'})
@@ -133,42 +154,21 @@ class ProductionCore(unittest.TestCase):
         self.assertEqual(month_key(before), '2026-09')
         self.assertEqual(month_key(after), '2026-10')
         with store.database(self.a) as db:
-            first, _ = wallet(db, before)
-            first.spent, first.balance = 45, 5
-            second, _ = wallet(db, after)
+            first = get_wallet(db, before)
+            from backend.wallet import spend
+            spend(db,'boundary-usage',45,'Fixture')
+            second = get_wallet(db, after)
             self.assertEqual(second.balance, 50)
         record = enrich(TradeInput(**self.trade(entry_time='2026-09-10T19:00:00Z', exit_time='2026-09-10T20:00:00Z')).model_dump())
         self.assertEqual(record['pnl_date'], '2026-09-11')
         self.assertEqual(group_rows([record], 'hour')[0]['name'], '00:00')
         self.assertEqual(len(apply_filters([record], {'start': '2026-09-11', 'end': '2026-09-11'})), 1)
 
-    def test_paid_features_cannot_be_unlocked_from_browser(self):
-        for url in ('/api/simulator', '/api/records/playbook', '/api/records/saved_filter'):
-            self.assertEqual(self.client.get(url).status_code, 403)
-        self.client.put('/api/settings/preferences', json={'data': {'plan': 'advanced', 'credits': 999999}})
-        self.assertEqual(self.client.get('/api/billing/me').json()['plan']['code'], 'free')
-        self.assertEqual(self.client.post('/api/billing/checkout', json={'price_code': 'pro_annual'}, headers={'Idempotency-Key': 'test-checkout'}).status_code, 503)
-
-    def test_paid_invoice_and_refund_are_idempotent(self):
-        now = int(datetime.now(timezone.utc).timestamp())
-        index = store.SubscriptionIndex(provider_id='sub_test', user_id=self.a, price_code='pro_annual', amount_paise=249900, provider_plan_id='plan_test', payment_url='https://rzp.io/test')
-        invoice = {'id': 'inv_test', 'payment_id': 'pay_test', 'subscription_id': 'sub_test', 'status': 'paid', 'currency': 'INR', 'amount_paid': 249900, 'amount_due': 0, 'billing_start': now-100, 'billing_end': now+86400}
-        payment = {'id': 'pay_test', 'invoice_id': 'inv_test', 'amount': 249900, 'currency': 'INR', 'status': 'captured', 'amount_refunded': 0}
-        remote = {'id': 'sub_test', 'plan_id': 'plan_test', 'status': 'active'}
-        with store.database(self.a) as db:
-            apply_verified(db, index, remote, [(invoice, payment)])
-            apply_verified(db, index, remote, [(invoice, payment)])
-            self.assertEqual(snapshot(db)['credits']['remaining'], 1000)
-            self.assertEqual(db.scalar(select(func.count()).select_from(store.Payment)), 1)
-        with store.database(self.a) as db:
-            apply_verified(db, index, {**remote, 'status': 'cancelled'}, [(invoice, payment)])
-            self.assertEqual(snapshot(db)['plan']['code'], 'pro')
-        with store.database(self.a) as db:
-            apply_verified(db, index, remote, [(invoice, {**payment, 'amount_refunded': 249900})])
-            self.assertEqual(snapshot(db)['plan']['code'], 'free')
-            self.assertEqual(snapshot(db)['credits']['remaining'], 50)
-        with self.assertRaises(HTTPException):
-            verify_invoice(index, invoice, {**payment, 'amount': 1})
+    def test_all_features_unlocked_but_browser_cannot_edit_credits(self):
+        for url in ('/api/simulator','/api/records/playbook','/api/records/saved_filter'):
+            self.assertEqual(self.client.get(url).status_code,200)
+        self.assertEqual(self.client.put('/api/settings/preferences',json={'data':{'credits':999999}}).status_code,422)
+        self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],50)
 
     def test_indian_contract_and_import_dates(self):
         from backend.importer import normalize_date
@@ -182,7 +182,7 @@ class ProductionCore(unittest.TestCase):
     def test_forged_webhook_is_rejected_before_provider_calls(self):
         from backend import billing
         with patch.object(billing, 'config', replace(billing.config, razorpay_webhook_secret='fixture-secret')):
-            with patch.object(billing.provider, 'subscription') as network:
+            with patch('backend.recharges.provider.link') as network:
                 with self.assertRaises(HTTPException) as failure:
                     process_event(b'{"event":"subscription.charged"}', 'forged', 'event-fixture')
                 self.assertEqual(failure.exception.status_code, 400)

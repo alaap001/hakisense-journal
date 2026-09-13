@@ -11,15 +11,14 @@ from sqlalchemy import text
 with database(system=True) as db:
     role = db.execute(text('SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user')).one()
     assert role == ('hakisense_api', False, False), role
-    assert db.scalar(text('SELECT count(*) FROM journal.plans')) == 3
-    assert db.scalar(text('SELECT count(*) FROM journal.prices')) == 3
+    assert db.scalar(text('SELECT count(*) FROM journal.credit_packs')) >= 4
     print('Restricted runtime connection and backend catalog: passed')
 
 connection = psycopg.connect(config.migration_url, connect_timeout=10, sslmode='require')
 try:
     with connection.cursor() as cursor:
-        cursor.execute("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='journal' AND c.relkind='r' AND c.relname<>'alembic_version' AND c.relrowsecurity AND c.relforcerowsecurity")
-        assert cursor.fetchone()[0] == 26
+        cursor.execute("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='journal' AND c.relkind='r' AND c.relname<>'alembic_version' AND NOT (c.relrowsecurity AND c.relforcerowsecurity)")
+        assert cursor.fetchone()[0] == 0
         a, b = str(uuid4()), str(uuid4())
         # Direct SQL fixtures do not invoke signup or send email; the outer transaction always rolls back.
         for user in (a, b):
@@ -37,8 +36,8 @@ try:
         assert cursor.rowcount == 0
         checks = [
             ("INSERT INTO journal.accounts(id,user_id,name,broker,currency,initial_balance,color,is_demo) VALUES ('wrong-owner',%s,'No','Manual','INR',0,'#a6d96a',false)", (a,)),
-            ("UPDATE journal.plans SET monthly_credits=999999 WHERE code='free'", None),
-            ("UPDATE journal.credit_entries SET amount=999999", None),
+            ("UPDATE journal.credit_packs SET credits=999999", None),
+            ("UPDATE journal.wallet_entries SET amount=999999", None),
         ]
         for statement, parameters in checks:
             cursor.execute('SAVEPOINT rejection_check')

@@ -23,6 +23,10 @@ class ProductSettings(BaseModel):
     api_requests_per_minute: int = Field(default=240, ge=30, le=1200)
     ai_requests_per_minute: int = Field(default=12, ge=1, le=60)
     report_trade_limit: int = Field(default=20000, ge=100, le=50000)
+    monthly_free_credits: int = Field(default=50, ge=0, le=100000)
+    playbook_creation_credits: int = Field(default=1, ge=0, le=1000)
+    advanced_credit_multiplier: int = Field(default=3, ge=1, le=20)
+    reference_credit_paise: int = Field(default=100, ge=1, le=100000)
 
     @field_validator('terms_url', 'privacy_url', 'refund_url')
     @classmethod

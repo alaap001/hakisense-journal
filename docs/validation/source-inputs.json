@@ -1,0 +1,1761 @@
+{
+  "status": "read_only_source_snapshot",
+  "note": "JSX controls, dynamic admin fields, prompt dialogs and dynamic trade input helper calls. Runtime options and generic JSON payloads are expanded in validation-catalog.json. Attributes are source expressions, not evaluated values.",
+  "controls": [
+    {
+      "file": "src/Admin.tsx",
+      "line": 40,
+      "component": "input",
+      "attributes": {
+        "type": "\"checkbox\"",
+        "checked": "{!!values[f.key]}",
+        "disabled": "{f.readOnly}",
+        "onChange": "{e=>setValues({...values,[f.key]:e.target.checked})}"
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 40,
+      "component": "input",
+      "attributes": {
+        "type": "\"checkbox\"",
+        "checked": "{(values[f.key]||[]).includes(option.value)}",
+        "onChange": "{e=>setValues({...values,[f.key]:e.target.checked?[...(values[f.key]||[]),option.value]:(values[f.key]||[]).filter((v:string)=>v!==option.value)})}"
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 40,
+      "component": "Select",
+      "attributes": {
+        "value": "{values[f.key]??''}",
+        "required": "{!f.optional}",
+        "onChange": "{e=>setValues({...values,[f.key]:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 40,
+      "component": "textarea",
+      "attributes": {
+        "rows": "{4}",
+        "value": "{values[f.key]||''}",
+        "required": "{!f.optional}",
+        "maxLength": "{f.max||4000}",
+        "onChange": "{e=>setValues({...values,[f.key]:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 40,
+      "component": "input",
+      "attributes": {
+        "type": "{f.type||'text'}",
+        "value": "{values[f.key]??''}",
+        "readOnly": "{f.readOnly}",
+        "required": "{!f.optional}",
+        "min": "{f.min}",
+        "max": "{f.max}",
+        "maxLength": "{f.type==='number'?undefined:f.max||500}",
+        "step": "{f.step||1}",
+        "onChange": "{e=>setValues({...values,[f.key]:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 40,
+      "component": "textarea",
+      "attributes": {
+        "value": "{reason}",
+        "onChange": "{e=>setReason(e.target.value)}",
+        "minLength": "{3}",
+        "maxLength": "{1000}",
+        "required": true,
+        "rows": "{2}",
+        "placeholder": "\"Explain the business reason…\""
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 54,
+      "component": "input",
+      "attributes": {
+        "aria-label": "\"Search users\"",
+        "value": "{search}",
+        "onChange": "{e=>setSearch(e.target.value)}",
+        "placeholder": "\"Search by email, name or user ID\"",
+        "maxLength": "{100}"
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 78,
+      "component": "input",
+      "attributes": {
+        "aria-label": "\"Search provider model catalog\"",
+        "placeholder": "\"qwen, deepseek, glm…\"",
+        "value": "{providerQuery}",
+        "onChange": "{e=>setProviderQuery(e.target.value)}",
+        "minLength": "{2}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 94,
+      "component": "input",
+      "attributes": {
+        "aria-label": "\"Search audit history\"",
+        "placeholder": "\"Search action, target or reason\"",
+        "value": "{input}",
+        "onChange": "{e=>setInput(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 99,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Filter AI jobs\"",
+        "value": "{status}",
+        "onChange": "{e=>{setStatus(e.target.value);setPage(1);}}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Group trades by\"",
+        "value": "{dimension}",
+        "onChange": "{e=>setDimension(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Chart metric\"",
+        "value": "{metric}",
+        "onChange": "{e=>setMetric(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "value": "{balance}",
+        "onChange": "{e=>setBalance(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "step": "\"0.1\"",
+        "value": "{riskPercent}",
+        "onChange": "{e=>setRiskPercent(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "step": "\"any\"",
+        "value": "{entry}",
+        "onChange": "{e=>setEntry(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "step": "\"any\"",
+        "value": "{stop}",
+        "onChange": "{e=>setStop(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0.000001\"",
+        "step": "\"any\"",
+        "value": "{multiplier}",
+        "onChange": "{e=>setMultiplier(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Analytics.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "aria-label": "\"Find a metric\"",
+        "placeholder": "\"Find a metric…\"",
+        "value": "{search}",
+        "onChange": "{e=>setSearch(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Auth.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "name": "\"name\"",
+        "autoComplete": "\"name\"",
+        "required": true,
+        "maxLength": "{100}",
+        "placeholder": "\"How should we address you?\""
+      }
+    },
+    {
+      "file": "src/Auth.tsx",
+      "line": 46,
+      "component": "input",
+      "attributes": {
+        "name": "\"email\"",
+        "type": "\"email\"",
+        "autoComplete": "\"email\"",
+        "required": true,
+        "placeholder": "\"you@example.com\""
+      }
+    },
+    {
+      "file": "src/Auth.tsx",
+      "line": 47,
+      "component": "input",
+      "attributes": {
+        "name": "\"password\"",
+        "type": "\"password\"",
+        "required": true,
+        "minLength": "{mode==='signup'||recovering?config.password_min_length:1}",
+        "maxLength": "{128}",
+        "autoComplete": "{mode==='signup'||recovering?'new-password':'current-password'}"
+      }
+    },
+    {
+      "file": "src/Calendar.tsx",
+      "line": 24,
+      "component": "input",
+      "attributes": {
+        "name": "\"title\"",
+        "defaultValue": "{`Review · ${date(selected)}`}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Calendar.tsx",
+      "line": 24,
+      "component": "Select",
+      "attributes": {
+        "name": "\"mood\""
+      }
+    },
+    {
+      "file": "src/Calendar.tsx",
+      "line": 24,
+      "component": "textarea",
+      "attributes": {
+        "name": "\"body\"",
+        "rows": "{8}",
+        "required": true,
+        "placeholder": "\"What went well? What will you do differently?\""
+      }
+    },
+    {
+      "file": "src/Coach.tsx",
+      "line": 30,
+      "component": "textarea",
+      "attributes": {
+        "aria-label": "\"Question for HakiSense\"",
+        "value": "{text}",
+        "onChange": "{e=>setText(e.target.value)}",
+        "placeholder": "\"Ask about your trades, habits, or performance…\"",
+        "rows": "{2}",
+        "onKeyDown": "{e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send();}}}"
+      }
+    },
+    {
+      "file": "src/Coach.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"AI mode\"",
+        "value": "{mode}",
+        "onChange": "{e=>setMode(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Dashboard.tsx",
+      "line": 36,
+      "component": "input",
+      "attributes": {
+        "type": "\"checkbox\"",
+        "checked": "{!hidden.includes(id)}",
+        "onChange": "{()=>void customize({hidden:hidden.includes(id)?hidden.filter(x=>x!==id):[...hidden,id]})}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "input",
+      "attributes": {
+        "ref": "{input}",
+        "type": "\"file\"",
+        "accept": "\".csv,.tsv,.xlsx\"",
+        "hidden": true,
+        "onChange": "{e=>{if(e.target.files?.[0])void inspect(e.target.files[0]);}}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "Select",
+      "attributes": {
+        "value": "{account}",
+        "onChange": "{e=>setAccount(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "Select",
+      "attributes": {
+        "value": "\"\"",
+        "onChange": "{e=>{const t=templates?.find(t=>t.id===e.target.value);if(t){setMapping(t.data.mapping);setDefaults(t.data.defaults||{});}}}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "Select",
+      "attributes": {
+        "value": "{defaults.asset_type||'Stocks'}",
+        "onChange": "{e=>setDefaults({...defaults,asset_type:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "Select",
+      "attributes": {
+        "value": "{defaults.side||'Long'}",
+        "onChange": "{e=>setDefaults({...defaults,side:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "Select",
+      "attributes": {
+        "value": "{defaults.exchange||'NSE'}",
+        "onChange": "{e=>setDefaults({...defaults,exchange:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "Select",
+      "attributes": {
+        "value": "{defaults.segment||'Equity'}",
+        "onChange": "{e=>setDefaults({...defaults,segment:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"1\"",
+        "step": "\"1\"",
+        "value": "{defaults.lot_size??''}",
+        "onChange": "{e=>setDefaults({...defaults,lot_size:e.target.value?Number(e.target.value):undefined})}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "step": "\"any\"",
+        "min": "\"0.00001\"",
+        "value": "{defaults.multiplier??''}",
+        "placeholder": "\"1 for Indian equity and F&O\"",
+        "onChange": "{e=>{const next={...defaults};if(e.target.value)next.multiplier=Number(e.target.value);else delete next.multiplier;setDefaults(next);}}"
+      }
+    },
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "component": "Select",
+      "attributes": {
+        "id": "{'map-'+field}",
+        "value": "{mapping[field]||''}",
+        "onChange": "{e=>setMapping({...mapping,[field]:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "input",
+      "attributes": {
+        "aria-label": "\"Search trades by symbol\"",
+        "placeholder": "\"Search instruments…\"",
+        "value": "{filters.symbol}",
+        "onChange": "{e=>{setPage(0);setFilter({symbol:e.target.value});}}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Filter outcome\"",
+        "value": "{filters.outcome}",
+        "onChange": "{e=>{setPage(0);setFilter({outcome:e.target.value});}}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Sort trades\"",
+        "value": "{sort}",
+        "onChange": "{e=>setSort(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "Select",
+      "attributes": {
+        "value": "{filters.asset_type}",
+        "onChange": "{e=>setFilter({asset_type:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "Select",
+      "attributes": {
+        "value": "{filters.side}",
+        "onChange": "{e=>setFilter({side:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "Select",
+      "attributes": {
+        "value": "{filters.status}",
+        "onChange": "{e=>setFilter({status:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "input",
+      "attributes": {
+        "placeholder": "\"Exact setup name\"",
+        "value": "{filters.setup}",
+        "onChange": "{e=>setFilter({setup:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "Select",
+      "attributes": {
+        "value": "{filters.emotion}",
+        "onChange": "{e=>setFilter({emotion:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "input",
+      "attributes": {
+        "value": "{filters.tag}",
+        "placeholder": "\"Exact tag\"",
+        "onChange": "{e=>setFilter({tag:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Load saved view\"",
+        "value": "\"\"",
+        "onChange": "{e=>{const doc=saved?.find(s=>s.id===e.target.value);if(doc){setFilter({...emptyFilters,...doc.data.filters});setPage(0);}}}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 44,
+      "component": "input",
+      "attributes": {
+        "name": "{name}",
+        "type": "{type}",
+        "step": "{type==='number'?'any':undefined}",
+        "required": "{required}",
+        "defaultValue": "{existing?.[name] as any??fallback}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "SuggestInput",
+      "attributes": {
+        "options": "{workspace?.markets.symbols||[]}",
+        "name": "\"symbol\"",
+        "required": true,
+        "defaultValue": "{existing?.symbol||''}",
+        "placeholder": "\"NIFTY, RELIANCE, BTCINR…\""
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "name": "\"account_id\"",
+        "required": true,
+        "defaultValue": "{existing?.account_id||workspace?.accounts[0]?.id}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "value": "{asset}",
+        "onChange": "{e=>{setAsset(e.target.value);setExchange(e.target.value==='Crypto'?'Crypto':'NSE');}}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "value": "{exchange}",
+        "onChange": "{e=>setExchange(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "name": "\"segment\"",
+        "key": "{asset}",
+        "defaultValue": "{existing?.segment||(asset==='Crypto'?'Crypto spot':asset==='Options'?'Index options':asset==='Futures'?'Index futures':'Equity')}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "name": "\"expiry\"",
+        "type": "\"date\"",
+        "required": true,
+        "defaultValue": "{existing?.expiry||''}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "name": "\"lot_size\"",
+        "type": "\"number\"",
+        "min": "\"1\"",
+        "step": "\"1\"",
+        "required": true,
+        "defaultValue": "{existing?.lot_size||''}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "name": "\"strike\"",
+        "type": "\"number\"",
+        "min": "\"0.01\"",
+        "step": "\"any\"",
+        "required": true,
+        "defaultValue": "{existing?.strike||''}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "name": "\"option_type\"",
+        "defaultValue": "{existing?.option_type||'CE'}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "name": "\"side\"",
+        "defaultValue": "{existing?.side||'Long'}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "value": "{status}",
+        "onChange": "{e=>setStatus(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "type": "\"datetime-local\"",
+        "name": "\"entry_time\"",
+        "required": true,
+        "defaultValue": "{istInput(existing?.entry_time)}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "type": "\"datetime-local\"",
+        "name": "\"exit_time\"",
+        "required": true,
+        "defaultValue": "{istInput(existing?.exit_time)}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "SuggestInput",
+      "attributes": {
+        "options": "{playbooks?.map(p=>String(p.data.title))||[]}",
+        "name": "\"setup\"",
+        "defaultValue": "{existing?.setup||''}",
+        "placeholder": "\"e.g. Breakout & retest\""
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "name": "\"emotion\"",
+        "defaultValue": "{existing?.emotion||'Neutral'}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "Select",
+      "attributes": {
+        "name": "\"rating\"",
+        "defaultValue": "{existing?.rating||3}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "input",
+      "attributes": {
+        "name": "\"tags\"",
+        "defaultValue": "{existing?.tags.join(', ')||''}",
+        "placeholder": "\"Patient entry, A+ setup\""
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "textarea",
+      "attributes": {
+        "name": "\"notes\"",
+        "rows": "{4}",
+        "placeholder": "\"What was the plan? How did you execute it?\"",
+        "defaultValue": "{existing?.notes||''}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "component": "textarea",
+      "attributes": {
+        "name": "\"attributes\"",
+        "className": "\"code\"",
+        "rows": "{4}",
+        "defaultValue": "{JSON.stringify(existing?.attributes||{},null,2)}"
+      }
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 52,
+      "component": "textarea",
+      "attributes": {
+        "rows": "{7}",
+        "value": "{draft}",
+        "onChange": "{e=>setDraft(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Landing.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Explore an example market\"",
+        "value": "{market}",
+        "onChange": "{e => {setMarket(e.target.value);setActive(22);}}"
+      }
+    },
+    {
+      "file": "src/Landing.tsx",
+      "line": 32,
+      "component": "input",
+      "attributes": {
+        "aria-label": "\"Explore example candles\"",
+        "type": "\"range\"",
+        "min": "\"0\"",
+        "max": "\"29\"",
+        "value": "{active}",
+        "onChange": "{e => setActive(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 17,
+      "component": "input",
+      "attributes": {
+        "aria-label": "\"Search notebook\"",
+        "value": "{search}",
+        "onChange": "{e=>setSearch(e.target.value)}",
+        "placeholder": "\"Search your notes…\""
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 17,
+      "component": "input",
+      "attributes": {
+        "name": "\"title\"",
+        "defaultValue": "{existing?.data.title||''}",
+        "placeholder": "\"What’s on your mind?\"",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 17,
+      "component": "input",
+      "attributes": {
+        "type": "\"date\"",
+        "name": "\"date\"",
+        "defaultValue": "{existing?.data.date||today()}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 17,
+      "component": "Select",
+      "attributes": {
+        "name": "\"mood\"",
+        "defaultValue": "{existing?.data.mood||'Focused'}"
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 17,
+      "component": "textarea",
+      "attributes": {
+        "name": "\"body\"",
+        "rows": "{14}",
+        "required": true,
+        "defaultValue": "{existing?.data.body||''}",
+        "placeholder": "{'What went well?\\n\\nWhat did I notice?\\n\\nOne thing to carry into my next session…'}"
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 26,
+      "component": "input",
+      "attributes": {
+        "name": "\"title\"",
+        "defaultValue": "{existing?.data.title||''}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 26,
+      "component": "textarea",
+      "attributes": {
+        "name": "\"description\"",
+        "rows": "{3}",
+        "defaultValue": "{existing?.data.description||''}"
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 26,
+      "component": "textarea",
+      "attributes": {
+        "name": "\"checklist\"",
+        "rows": "{7}",
+        "defaultValue": "{(existing?.data.checklist||[]).join('\\n')}"
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "input",
+      "attributes": {
+        "name": "\"title\"",
+        "defaultValue": "{existing?.data.title||''}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "Select",
+      "attributes": {
+        "name": "\"metric\"",
+        "defaultValue": "{existing?.data.metric||'reviewed'}"
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "input",
+      "attributes": {
+        "name": "\"target\"",
+        "type": "\"number\"",
+        "min": "\"0.01\"",
+        "step": "\"any\"",
+        "defaultValue": "{existing?.data.target||20}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "input",
+      "attributes": {
+        "name": "\"symbol\"",
+        "defaultValue": "{existing?.data.symbol||''}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "Select",
+      "attributes": {
+        "name": "\"account_id\"",
+        "defaultValue": "{existing?.data.account_id||workspace?.accounts[0]?.id}"
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "input",
+      "attributes": {
+        "name": "\"date\"",
+        "type": "\"date\"",
+        "defaultValue": "{existing?.data.date||today()}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "input",
+      "attributes": {
+        "name": "\"amount\"",
+        "type": "\"number\"",
+        "step": "\"any\"",
+        "min": "\"0\"",
+        "defaultValue": "{existing?.data.amount||''}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Notes.tsx",
+      "line": 39,
+      "component": "Select",
+      "attributes": {
+        "name": "\"status\"",
+        "defaultValue": "{existing?.data.status||'Received'}"
+      }
+    },
+    {
+      "file": "src/Select.tsx",
+      "line": 89,
+      "component": "select",
+      "attributes": {
+        "ref": "{native}",
+        "id": "{`${triggerId}-native`}",
+        "disabled": "{disabled}",
+        "value": "{value}",
+        "defaultValue": "{defaultValue}",
+        "tabIndex": "{-1}",
+        "aria-hidden": "\"true\"",
+        "className": "\"select-native\"",
+        "onInvalid": "{e => {e.preventDefault(); trigger.current?.focus(); show();}}",
+        "onChange": "{e => {setInternal(e.target.value); onChange?.(e);}}"
+      }
+    },
+    {
+      "file": "src/Select.tsx",
+      "line": 92,
+      "component": "input",
+      "attributes": {
+        "ref": "{search}",
+        "aria-label": "\"Search options\"",
+        "role": "\"combobox\"",
+        "aria-expanded": "\"true\"",
+        "aria-controls": "{listId}",
+        "aria-activedescendant": "{filtered[active] ? `${listId}-${active}` : undefined}",
+        "autoComplete": "\"off\"",
+        "placeholder": "\"Search options…\"",
+        "value": "{query}",
+        "onChange": "{e => {setQuery(e.target.value); setActive(0);}}"
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 17,
+      "component": "input",
+      "attributes": {
+        "name": "\"name\"",
+        "required": true,
+        "defaultValue": "{current?.name||''}",
+        "placeholder": "\"e.g. Swing trading\""
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 17,
+      "component": "Select",
+      "attributes": {
+        "name": "\"broker\"",
+        "defaultValue": "{current?.broker||'Other / manual'}"
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 17,
+      "component": "Select",
+      "attributes": {
+        "name": "\"currency\"",
+        "defaultValue": "{'INR'}"
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 17,
+      "component": "input",
+      "attributes": {
+        "name": "\"initial_balance\"",
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "step": "\"any\"",
+        "defaultValue": "{current?.initial_balance??0}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 17,
+      "component": "input",
+      "attributes": {
+        "name": "\"color\"",
+        "type": "\"color\"",
+        "defaultValue": "{current?.color||'#a6d96a'}"
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 24,
+      "component": "input",
+      "attributes": {
+        "name": "\"name\"",
+        "defaultValue": "{workspace.user.name}",
+        "required": true,
+        "maxLength": "{100}",
+        "autoComplete": "\"name\""
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 24,
+      "component": "input",
+      "attributes": {
+        "value": "{workspace.user.email}",
+        "readOnly": true
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 24,
+      "component": "input",
+      "attributes": {
+        "value": "\"Indian Rupee · INR (₹)\"",
+        "readOnly": true
+      }
+    },
+    {
+      "file": "src/Settings.tsx",
+      "line": 24,
+      "component": "input",
+      "attributes": {
+        "value": "\"Asia/Kolkata · UTC+05:30\"",
+        "readOnly": true
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"file\"",
+        "ref": "{file}",
+        "accept": "\".csv,.xlsx\"",
+        "hidden": true,
+        "onChange": "{async e=>{const selected=e.target.files?.[0];if(!selected)return;setPlaying(false);setBusy(true);try{const body=new FormData();body.append('file',selected);const res=await api('/import/inspect',{method:'POST',body});const rows=res.rows.map((row:any)=>{const r=Object.fromEntries(Object.entries(row).map(([k,v])=>[k.toLowerCase().trim(),v]));return {time:r.time||r.timestamp||r.date,open:Number(r.open),high:Number(r.high),low:Number(r.low),close:Number(r.close),volume:Number(r.volume)||0};});setSource({name:selected.name,candles:rows});setCreating(true);}catch(e){explain(e);}finally{setBusy(false);if(file.current)file.current.value='';}}}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Saved replay session\"",
+        "value": "{session?.id||''}",
+        "disabled": "{busy}",
+        "onChange": "{e=>{if(e.target.value)void loadSession(e.target.value);}}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Replay candle aggregation\"",
+        "value": "{timeframe}",
+        "onChange": "{e=>setTimeframe(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Chart indicator\"",
+        "value": "{indicator}",
+        "onChange": "{e=>setIndicator(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Replay speed\"",
+        "value": "{speed}",
+        "onChange": "{e=>setSpeed(Number(e.target.value))}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0.000001\"",
+        "step": "\"any\"",
+        "value": "{qty}",
+        "onChange": "{e=>setQty(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0.000001\"",
+        "step": "\"any\"",
+        "value": "{mult}",
+        "onChange": "{e=>setMult(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "step": "\"any\"",
+        "value": "{fees}",
+        "onChange": "{e=>setFees(e.target.value)}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "step": "\"any\"",
+        "value": "{stop}",
+        "onChange": "{e=>setStop(e.target.value)}",
+        "placeholder": "\"Optional price\""
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0\"",
+        "step": "\"any\"",
+        "value": "{target}",
+        "onChange": "{e=>setTarget(e.target.value)}",
+        "placeholder": "\"Optional price\""
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "value": "{symbol}",
+        "onChange": "{e=>setSymbol(e.target.value)}",
+        "required": true
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "value": "{asset}",
+        "onChange": "{e=>{const value=e.target.value;setAsset(value);setContract({...contract,exchange:value==='Crypto'?'Crypto':'NSE',segment:value==='Crypto'?'Crypto spot':value==='Options'?'Index options':value==='Futures'?'Index futures':'Equity'});}}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "value": "{contract.exchange}",
+        "onChange": "{e=>setContract({...contract,exchange:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "value": "{contract.segment}",
+        "onChange": "{e=>setContract({...contract,segment:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"1\"",
+        "required": true,
+        "value": "{contract.lot_size}",
+        "onChange": "{e=>setContract({...contract,lot_size:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"date\"",
+        "required": true,
+        "value": "{contract.expiry}",
+        "onChange": "{e=>setContract({...contract,expiry:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "input",
+      "attributes": {
+        "type": "\"number\"",
+        "min": "\"0.01\"",
+        "step": "\"any\"",
+        "required": true,
+        "value": "{contract.strike}",
+        "onChange": "{e=>setContract({...contract,strike:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/Simulator.tsx",
+      "line": 30,
+      "component": "Select",
+      "attributes": {
+        "value": "{contract.option_type}",
+        "onChange": "{e=>setContract({...contract,option_type:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/SuggestInput.tsx",
+      "line": 26,
+      "component": "input",
+      "attributes": {
+        "id": "{id}",
+        "ref": "{input}",
+        "role": "\"combobox\"",
+        "aria-autocomplete": "\"list\"",
+        "aria-expanded": "{visible}",
+        "aria-controls": "{visible?listId:undefined}",
+        "aria-activedescendant": "{visible&&active>=0?`${listId}-${active}`:undefined}",
+        "autoComplete": "\"off\"",
+        "value": "{value}",
+        "onChange": "{e=>{setValue(e.target.value);setActive(-1);setOpen(true);}}",
+        "onFocus": "{()=>setOpen(true)}",
+        "onBlur": "{()=>setOpen(false)}",
+        "onKeyDown": "{e=>{\n    if(e.key==='Escape'&&visible){e.preventDefault();e.stopPropagation();setOpen(false);}\n    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();setOpen(true);setActive(i=>Math.max(0,Math.min(matches.length-1,i+(e.key==='ArrowDown'?1:-1))));}\n    if(e.key==='Enter'&&visible&&matches[active]){e.preventDefault();choose(matches[active]);}\n    if(e.key==='Tab')setOpen(false);\n  }}"
+      }
+    },
+    {
+      "file": "src/WorkspaceApp.tsx",
+      "line": 43,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Select trading account\"",
+        "value": "{filters.account_id}",
+        "onChange": "{e=>setFilter({account_id:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/WorkspaceApp.tsx",
+      "line": 43,
+      "component": "Select",
+      "attributes": {
+        "aria-label": "\"Date range\"",
+        "value": "{dateMode}",
+        "onChange": "{e=>{const value=e.target.value;setDateMode(value);if(value==='custom')return;if(value==='all'){setFilter({start:'',end:''});return;}const start=new Date();start.setUTCDate(start.getUTCDate()-Number(value));setFilter({start:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(start),end:today()});}}"
+      }
+    },
+    {
+      "file": "src/WorkspaceApp.tsx",
+      "line": 43,
+      "component": "input",
+      "attributes": {
+        "type": "\"date\"",
+        "aria-label": "\"Start entry date\"",
+        "value": "{filters.start}",
+        "onChange": "{e=>setFilter({start:e.target.value})}"
+      }
+    },
+    {
+      "file": "src/WorkspaceApp.tsx",
+      "line": 43,
+      "component": "input",
+      "attributes": {
+        "type": "\"date\"",
+        "aria-label": "\"End entry date\"",
+        "value": "{filters.end}",
+        "onChange": "{e=>setFilter({end:e.target.value})}"
+      }
+    }
+  ],
+  "dynamic_admin_fields": [
+    {
+      "file": "src/Admin.tsx",
+      "line": 61,
+      "key": "'display_name'",
+      "label": "'Display name'",
+      "definition": "{key:'display_name',label:'Display name',max:100}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 61,
+      "key": "'suspended'",
+      "label": "'Suspend application access'",
+      "definition": "{key:'suspended',label:'Suspend application access',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 61,
+      "key": "'amount'",
+      "label": "'Credits to add or remove'",
+      "definition": "{key:'amount',label:'Credits to add or remove',type:'number',min:-1000000,max:1000000,hint:'Positive adds credits; negative removes available credits.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 61,
+      "key": "'role'",
+      "label": "'Staff role'",
+      "definition": "{key:'role',label:'Staff role',type:'select',options:opts(['support','admin','owner'])}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 61,
+      "key": "'active'",
+      "label": "'Enable staff access'",
+      "definition": "{key:'active',label:'Enable staff access',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 61,
+      "key": "'plan_code'",
+      "label": "'Plan'",
+      "definition": "{key:'plan_code',label:'Plan',type:'select',options:catalog.plans.filter((p:Item)=>p.active).map((p:Item)=>({value:p.code,label:p.name}))}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 61,
+      "key": "'expires_at'",
+      "label": "'Access expires · IST'",
+      "definition": "{key:'expires_at',label:'Access expires · IST',type:'datetime-local'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'code'",
+      "label": "'Stable plan code'",
+      "definition": "{key:'code',label:'Stable plan code',readOnly:!!plan}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'name'",
+      "label": "'Plan name'",
+      "definition": "{key:'name',label:'Plan name',max:100}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'monthly_credits'",
+      "label": "'Monthly credits'",
+      "definition": "{key:'monthly_credits',label:'Monthly credits',type:'number',min:0,max:1000000}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'trade_limit'",
+      "label": "'New trades per month'",
+      "definition": "{key:'trade_limit',label:'New trades per month',type:'number',min:0,optional:true,hint:'Blank means unlimited.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'model_tier'",
+      "label": "'AI routing tier'",
+      "definition": "{key:'model_tier',label:'AI routing tier',type:'select',options:opts(['standard','advanced'])}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'active'",
+      "label": "'Show this plan to customers'",
+      "definition": "{key:'active',label:'Show this plan to customers',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'features'",
+      "label": "'Included features'",
+      "definition": "{key:'features',label:'Included features',type:'features',options:Object.entries(catalog.features).map(([value,label])=>({value,label:String(label)}))}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 67,
+      "key": "'upcoming_features'",
+      "label": "'Coming soon · does not grant access'",
+      "definition": "{key:'upcoming_features',label:'Coming soon · does not grant access',type:'features',options:Object.entries(catalog.upcoming_features||{}).map(([value,label])=>({value,label:String(label)}))}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 69,
+      "key": "'code'",
+      "label": "'Unique price code'",
+      "definition": "{key:'code',label:'Unique price code',readOnly:!!price}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 69,
+      "key": "'plan_code'",
+      "label": "'Plan'",
+      "definition": "{key:'plan_code',label:'Plan',type:'select',options:catalog.plans.filter((p:Item)=>p.code!=='free').map((p:Item)=>({value:p.code,label:p.name}))}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 69,
+      "key": "'interval'",
+      "label": "'Billing interval'",
+      "definition": "{key:'interval',label:'Billing interval',type:'select',options:opts(['month','year'])}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 69,
+      "key": "'amount_paise'",
+      "label": "'Amount in paise · INR'",
+      "definition": "{key:'amount_paise',label:'Amount in paise · INR',type:'number',min:100,max:100000000,hint:'100 paise = ₹1. Prices include applicable taxes.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 69,
+      "key": "'provider_plan_id'",
+      "label": "'Razorpay plan ID'",
+      "definition": "{key:'provider_plan_id',label:'Razorpay plan ID',optional:true,nullable:true,hint:'An entered ID is checked against the provider before saving.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 69,
+      "key": "'active'",
+      "label": "'Offer this price to new subscribers'",
+      "definition": "{key:'active',label:'Offer this price to new subscribers',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 76,
+      "key": "'id'",
+      "label": "'OpenRouter model ID'",
+      "definition": "{key:'id',label:'OpenRouter model ID',readOnly:!!model,hint:'For example: qwen/qwen3.7-flash',max:200}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 76,
+      "key": "'name'",
+      "label": "'Display name'",
+      "definition": "{key:'name',label:'Display name',max:100}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 76,
+      "key": "'enabled'",
+      "label": "'Available for new routes'",
+      "definition": "{key:'enabled',label:'Available for new routes',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'model_id'",
+      "label": "'Response model'",
+      "definition": "{key:'model_id',label:'Response model',type:'select',options:modelOptions}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'planner_model_id'",
+      "label": "'Query-planning model'",
+      "definition": "{key:'planner_model_id',label:'Query-planning model',type:'select',optional:true,nullable:true,options:modelOptions,hint:'Blank uses the response model.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'max_output_tokens'",
+      "label": "'Maximum output tokens'",
+      "definition": "{key:'max_output_tokens',label:'Maximum output tokens',type:'number',min:128,max:16000}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'timeout_seconds'",
+      "label": "'Timeout per model call · seconds'",
+      "definition": "{key:'timeout_seconds',label:'Timeout per model call · seconds',type:'number',min:10,max:90}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'temperature'",
+      "label": "'Temperature'",
+      "definition": "{key:'temperature',label:'Temperature',type:'number',min:0,max:2,step:'0.05'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'reasoning_effort'",
+      "label": "'Reasoning effort'",
+      "definition": "{key:'reasoning_effort',label:'Reasoning effort',type:'select',options:opts(['none','minimal','low','medium','high'])}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'enabled'",
+      "label": "'Enable this task for this tier'",
+      "definition": "{key:'enabled',label:'Enable this task for this tier',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 77,
+      "key": "'instructions'",
+      "label": "'Additional task guidance'",
+      "definition": "{key:'instructions',label:'Additional task guidance',type:'textarea',optional:true,max:4000,hint:'Appended to the built-in evidence and Indian-market instructions.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 78,
+      "key": "'name'",
+      "label": "'Task name'",
+      "definition": "{key:'name',label:'Task name',max:100}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 78,
+      "key": "'credits'",
+      "label": "'Credits per task'",
+      "definition": "{key:'credits',label:'Credits per task',type:'number',min:0,max:100000,hint:'Use 0 to make this AI task free.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 78,
+      "key": "'enabled'",
+      "label": "'Enable task'",
+      "definition": "{key:'enabled',label:'Enable task',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'brand_name'",
+      "label": "'Product name'",
+      "definition": "{key:'brand_name',label:'Product name',max:60}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'support_email'",
+      "label": "'Support email'",
+      "definition": "{key:'support_email',label:'Support email',optional:true,max:200}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'legal_business_name'",
+      "label": "'Legal business name'",
+      "definition": "{key:'legal_business_name',label:'Legal business name',optional:true,max:200}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'legal_business_address'",
+      "label": "'Legal business address'",
+      "definition": "{key:'legal_business_address',label:'Legal business address',type:'textarea',optional:true,max:1000}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'terms_url'",
+      "label": "'Terms URL · HTTPS'",
+      "definition": "{key:'terms_url',label:'Terms URL · HTTPS',optional:true}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'privacy_url'",
+      "label": "'Privacy URL · HTTPS'",
+      "definition": "{key:'privacy_url',label:'Privacy URL · HTTPS',optional:true}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'refund_url'",
+      "label": "'Refund policy URL · HTTPS'",
+      "definition": "{key:'refund_url',label:'Refund policy URL · HTTPS',optional:true}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'ai_enabled'",
+      "label": "'Enable AI requests'",
+      "definition": "{key:'ai_enabled',label:'Enable AI requests',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'checkout_enabled'",
+      "label": "'Enable subscription checkout'",
+      "definition": "{key:'checkout_enabled',label:'Enable subscription checkout',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'maintenance_enabled'",
+      "label": "'Enable maintenance mode for customers'",
+      "definition": "{key:'maintenance_enabled',label:'Enable maintenance mode for customers',type:'checkbox'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'maintenance_message'",
+      "label": "'Maintenance message'",
+      "definition": "{key:'maintenance_message',label:'Maintenance message',type:'textarea',max:500}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'announcement'",
+      "label": "'Workspace announcement'",
+      "definition": "{key:'announcement',label:'Workspace announcement',type:'textarea',optional:true,max:500}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'api_requests_per_minute'",
+      "label": "'API requests / user / minute'",
+      "definition": "{key:'api_requests_per_minute',label:'API requests / user / minute',type:'number',min:30,max:1200}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'ai_requests_per_minute'",
+      "label": "'AI submissions / user / minute'",
+      "definition": "{key:'ai_requests_per_minute',label:'AI submissions / user / minute',type:'number',min:1,max:60}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 83,
+      "key": "'report_trade_limit'",
+      "label": "'Maximum trades in one report'",
+      "definition": "{key:'report_trade_limit',label:'Maximum trades in one report',type:'number',min:100,max:50000}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 88,
+      "key": "'user_id'",
+      "label": "'Existing verified user ID'",
+      "definition": "{key:'user_id',label:'Existing verified user ID',readOnly:!!user,hint:'Copy the ID from the Users detail panel.'}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 88,
+      "key": "'role'",
+      "label": "'Administration role'",
+      "definition": "{key:'role',label:'Administration role',type:'select',options:opts(['support','admin','owner'])}"
+    },
+    {
+      "file": "src/Admin.tsx",
+      "line": 88,
+      "key": "'active'",
+      "label": "'Staff access enabled'",
+      "definition": "{key:'active',label:'Staff access enabled',type:'checkbox'}"
+    }
+  ],
+  "prompts_and_trade_helpers": [
+    {
+      "file": "src/Import.tsx",
+      "line": 21,
+      "call": "prompt('Name this mapping template')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 26,
+      "call": "prompt('Name this saved view')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('quantity','number',1,true)"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('entry_price','number','',true)"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('exit_price','number','',true)"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('closed_quantity','number','',true)"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('mark_price')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('commission','number',0)"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('fees','number',0)"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('multiplier','number',1,true)"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('stop_loss')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('target_price')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('risk_amount')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('planned_entry')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('mfe')"
+    },
+    {
+      "file": "src/Journal.tsx",
+      "line": 45,
+      "call": "input('mae')"
+    }
+  ]
+}

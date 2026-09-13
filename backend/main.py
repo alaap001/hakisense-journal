@@ -15,6 +15,7 @@ from .config import config, ROOT
 from .db import database, engine
 from .journal_routes import api
 from .billing import router as billing_router, webhooks
+from .recharges import router as recharge_router
 from .jobs import router as jobs_router
 from .admin import router as admin_router
 from .security import BodyLimit
@@ -32,7 +33,7 @@ async def lifespan(app):
             role = db.execute(text('SELECT current_user, rolbypassrls, rolsuper FROM pg_roles WHERE rolname = current_user')).one()
             if role[0] != 'hakisense_api' or role[1] or role[2]:
                 raise RuntimeError('Database runtime role must enforce row-level security.')
-            db.execute(text('SELECT code FROM journal.plans LIMIT 1'))
+            db.execute(text('SELECT code FROM journal.credit_packs LIMIT 1'))
     yield
     if engine:
         engine.dispose()
@@ -90,7 +91,7 @@ def health():
 @app.get('/api/ready')
 def ready():
     with database(system=True) as db:
-        db.execute(text('SELECT code FROM journal.plans LIMIT 1'))
+        db.execute(text('SELECT code FROM journal.credit_packs LIMIT 1'))
     return {'status': 'ready'}
 
 
@@ -105,8 +106,16 @@ def public_config():
             'policies': {'privacy': product.privacy_url, 'terms': product.terms_url, 'refunds': product.refund_url}}
 
 
+@app.get('/api/catalog')
+def marketing_catalog():
+    from .entitlements import public_catalog
+    with database(system=True) as db:
+        return public_catalog(db)
+
+
 app.include_router(api)
 app.include_router(billing_router)
+app.include_router(recharge_router)
 app.include_router(jobs_router)
 app.include_router(admin_router)
 app.include_router(webhooks)

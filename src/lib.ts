@@ -35,7 +35,7 @@ async function checkResponse(response:Response){
     let detail:any;
     try{detail=(await response.json()).detail;}catch{detail='HakiSense is temporarily unavailable. Please try again.';}
     if(Array.isArray(detail))detail=detail.map(e=>`${e.loc?.slice(1).join('.')}: ${e.msg}`).join('; ');
-    if(['price_changed','config_changed','subscription_required'].includes(detail?.code))useStore.getState().refresh();
+    if(['price_changed','config_changed','offer_unavailable','insufficient_credits'].includes(detail?.code))useStore.getState().refresh();
     throw new ApiError(typeof detail==='string'?detail:detail?.message||`Request failed (${response.status})`,response.status,detail?.code);
   }
   return response;
@@ -53,7 +53,7 @@ export async function waitForJob(id:string){
   useStore.getState().refresh();throw new Error('Your review is still processing. View its progress in AI activity.');
 }
 export async function post(path:string,data:unknown):Promise<any>{
-  const body=path==='/ai/query'?{...(data as Record<string,unknown>),expected_credits:creditsFor((data as any).mode||'chat')}:data;
+  const body=path==='/ai/query'?{...(data as Record<string,unknown>),expected_credits:creditsFor((data as any).mode||'chat',(data as any).model_tier||'standard')}:data;
   const init={method:'POST',body:JSON.stringify(body),headers:{'Idempotency-Key':crypto.randomUUID()}};
   if(path==='/ai/query'){
     let job;
@@ -68,8 +68,8 @@ export async function downloadApi(path:string,name:string){
   const response=await checkResponse(await authorizedFetch(path));const blob=await response.blob();
   const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=name;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-export const creditsFor=(mode:string)=>useStore.getState().workspace?.catalog.tasks.find(t=>t.code===mode)?.credits;
-export const creditLabel=(mode:string)=>`${creditsFor(mode)??'—'} credits`;
+export const creditsFor=(mode:string,tier='standard')=>{const task=useStore.getState().workspace?.catalog.tasks.find(t=>t.code===mode);return tier==='advanced'?task?.advanced_credits:task?.credits;};
+export const creditLabel=(mode:string,tier='standard')=>`${creditsFor(mode,tier)??'—'} credits`;
 export const hasFeature=(feature:string)=>!!useStore.getState().workspace?.billing.features.includes(feature);
 export const qs=(filters:Partial<Filters>)=>'?'+new URLSearchParams(Object.entries(filters).filter(([,v])=>v)).toString();
 export function useData<T=any>(path:string,enabled=true){

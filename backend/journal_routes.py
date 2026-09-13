@@ -1,9 +1,10 @@
+import hashlib
 import csv
 import io
 import json
 import math
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select, delete
@@ -16,6 +17,7 @@ from .importer import read_table, preview_rows, fingerprint, ALIASES
 from .entitlements import consume_trades, require_feature, provision, snapshot, public_catalog, lock_user
 from .markets import catalog, IST
 from . import simulator
+from .preferences import PreferencesInput, ProfileInput, effective_preferences
 
 def enforce_features(request: Request, db=Depends(get_db)):
     path = request.url.path.removeprefix('/api/')
@@ -53,7 +55,9 @@ def workspace(identity: Identity = Depends(require_user), db=Depends(get_db)):
     member = db.get(AdminMember, identity.id)
     profile = provision(db, identity.name)
     settings = {s.key: s.value for s in db.scalars(select(Setting)) if s.key in ('preferences', 'dashboard')}
-    return {'accounts': [serialize(a) for a in db.scalars(select(Account))], 'settings': settings,
+    accounts = [serialize(a) for a in db.scalars(select(Account))]
+    settings['preferences'] = effective_preferences(settings.get('preferences'), {a['id'] for a in accounts})
+    return {'accounts': accounts, 'settings': settings,
             'currency': 'INR', 'timezone': 'Asia/Kolkata', 'user': {'id': identity.id, 'email': identity.email, 'name': profile.display_name},
             'billing': snapshot(db), 'catalog': public_catalog(db), 'markets': catalog(),
             'admin_role': member.role if member and member.active else None,
@@ -61,12 +65,9 @@ def workspace(identity: Identity = Depends(require_user), db=Depends(get_db)):
 
 
 @api.put('/profile')
-def update_profile(payload: RecordInput, db=Depends(get_db)):
+def update_profile(payload: ProfileInput, db=Depends(get_db)):
     profile = lock_user(db)
-    name = str(payload.data.get('display_name', '')).strip()
-    if not name or len(name) > 100:
-        raise HTTPException(400, 'Enter a name between 1 and 100 characters.')
-    profile.display_name = name
+    profile.display_name = payload.data.display_name
     return {'ok': True}
 
 @api.get('/trades')
@@ -74,11 +75,28 @@ def trades(filters:FilterInput=Depends(),db:DBSession=Depends(get_db)):
     return apply_filters(all_trades(db,filters),filters)
 
 
+def trade_playbook(db, values, existing=None):
+    playbook_id=values.get('playbook_id')
+    if existing and existing.playbook_id==playbook_id and playbook_id:
+        values['setup']=existing.setup
+        values['playbook_snapshot']=existing.playbook_snapshot
+    elif playbook_id:
+        record=get_record(db,playbook_id,'playbook')
+        if record.data.get('archived'):
+            raise HTTPException(400,'Choose an active playbook.')
+        values['setup']=record.data['title']
+        values['playbook_snapshot']={k:record.data.get(k) for k in ('title','description','checklist')}
+    else:
+        values['playbook_snapshot']={}
+    return values
+
+
 @api.post('/trades')
 def create_trade(payload:TradeInput,db:DBSession=Depends(get_db)):
     require_account(db,payload.account_id)
     consume_trades(db,1)
-    t=Trade(**payload.model_dump())
+    values=trade_playbook(db,payload.model_dump())
+    t=Trade(**values)
     db.add(t)
     db.flush()
     return enrich(serialize(t))
@@ -90,7 +108,7 @@ def update_trade(trade_id:str,payload:TradeInput,db:DBSession=Depends(get_db)):
     t=db.get(Trade,trade_id)
     if not t:
         raise HTTPException(404,'Trade not found')
-    for k,v in payload.model_dump().items():
+    for k,v in trade_playbook(db,payload.model_dump(),t).items():
         setattr(t,k,v)
     t.fingerprint=None
     t.is_demo=False
@@ -168,11 +186,30 @@ def delete_account(account_id:str,db:DBSession=Depends(get_db)):
 KINDS={'note','playbook','goal','dividend','pin','template','saved_filter'}
 
 
+@api.get('/playbooks/performance')
+def playbook_performance(filters:FilterInput=Depends(),db=Depends(get_db)):
+    playbooks=list(db.scalars(select(Record).where(Record.kind=='playbook')))
+    titles={}
+    for book in playbooks:
+        if not book.data.get('archived'):titles.setdefault(book.data.get('title'),[]).append(book.id)
+    rows=apply_filters(all_trades(db,filters),filters)
+    linked=[]
+    for trade in rows:
+        key=trade.get('playbook_id')
+        if not key and len(titles.get(trade['setup'],[]))==1:key=titles[trade['setup']][0]
+        if key:linked.append({**trade,'setup':key})
+    return {row['name']:row for row in group_rows(linked,'setup')}
+
+
 def validate_record(kind,data):
     if kind not in KINDS:
         raise HTTPException(400,'Unsupported record type')
     if kind in ('note','playbook','goal') and not str(data.get('title','')).strip():
         raise HTTPException(400,'Title is required')
+    if kind=='playbook':
+        from .schemas import PlaybookData
+        try:data=PlaybookData.model_validate(data).model_dump()
+        except ValidationError as exc:raise HTTPException(422,str(exc))
     if kind=='goal':
         if data.get('metric') not in ('net_pnl','reviewed','process','count','win_rate') or not isinstance(data.get('target'),(int,float)) or not math.isfinite(data['target']) or data['target']<=0:
             raise HTTPException(400,'Select a goal metric and a positive target')
@@ -188,17 +225,34 @@ def records(kind:str,db:DBSession=Depends(get_db)):
         require_feature(db,'playbooks' if kind=='playbook' else 'saved_views')
     if kind not in KINDS:
         raise HTTPException(400,'Unsupported record type')
-    return [serialize(r) for r in db.scalars(select(Record).where(Record.kind==kind).order_by(Record.created_at.desc()))]
+    return [serialize(r) for r in db.scalars(select(Record).where(Record.kind==kind).order_by(Record.created_at.desc())) if kind!='playbook' or not r.data.get('archived')]
 
 
 @api.post('/records/{kind}')
-def create_record(kind:str,payload:RecordInput,db:DBSession=Depends(get_db)):
+def create_record(kind:str,payload:RecordInput,key:str|None=Header(default=None,alias='Idempotency-Key'),db:DBSession=Depends(get_db)):
     if kind in ('playbook','saved_filter'):
         require_feature(db,'playbooks' if kind=='playbook' else 'saved_views')
     data=validate_record(kind,payload.data)
     if kind=='dividend':
         require_account(db,data.get('account_id'))
-    r=Record(kind=kind,data=data)
+    if kind=='playbook':
+        from .wallet import get_wallet, entry, spend
+        from .runtime_settings import settings
+        if not key or not 8<=len(key)<=100:
+            raise HTTPException(400,'A valid Idempotency-Key is required to create a playbook.')
+        get_wallet(db)
+        digest=hashlib.sha256(json.dumps(data,sort_keys=True).encode()).hexdigest()
+        previous=entry(db,'playbook:'+key)
+        if previous:
+            if previous.details.get('request_hash')!=digest:raise HTTPException(409,'This request key belongs to another playbook.')
+            return serialize(get_record(db,previous.details['record_id'],'playbook'))
+        price=settings(db).playbook_creation_credits
+        if payload.expected_credits!=price:
+            raise HTTPException(409,{'code':'price_changed','message':'The playbook creation price changed. Refresh before saving.'})
+        r=Record(id=uid(),kind=kind,data=data)
+        spend(db,'playbook:'+key,price,'Create playbook · '+data['title'],{'record_id':r.id,'request_hash':digest})
+    else:
+        r=Record(kind=kind,data=data)
     db.add(r)
     db.flush()
     return serialize(r)
@@ -209,6 +263,7 @@ def update_record(kind:str,record_id:str,payload:RecordInput,db:DBSession=Depend
     if kind in ('playbook','saved_filter'):
         require_feature(db,'playbooks' if kind=='playbook' else 'saved_views')
     r=get_record(db,record_id,kind)
+    if kind=='playbook' and r.data.get('archived'):raise HTTPException(409,'This playbook was archived.')
     data=dict(validate_record(kind,payload.data))
     data.pop('is_demo',None)
     if kind=='dividend':
@@ -221,16 +276,30 @@ def update_record(kind:str,record_id:str,payload:RecordInput,db:DBSession=Depend
 def delete_record(kind:str,record_id:str,db:DBSession=Depends(get_db)):
     if kind in ('playbook','saved_filter'):
         require_feature(db,'playbooks' if kind=='playbook' else 'saved_views')
-    db.delete(get_record(db,record_id,kind))
+    r=get_record(db,record_id,kind)
+    if kind=='playbook':r.data={**r.data,'archived':True}
+    else:db.delete(r)
     return {'ok':True}
+
+
+@api.put('/settings/preferences')
+def save_preferences(payload: PreferencesInput, db=Depends(get_db)):
+    lock_user(db)
+    value = payload.data.model_dump()
+    if value['default_account_id']:
+        require_account(db, value['default_account_id'])
+    setting = get_setting(db, 'preferences')
+    if setting:
+        setting.value = value
+    else:
+        db.add(Setting(key='preferences', value=value))
+    return {'ok': True, 'preferences': value}
 
 
 @api.put('/settings/{key}')
 def save_setting(key:str,payload:RecordInput,db:DBSession=Depends(get_db)):
-    if key not in ('dashboard','preferences'):
+    if key != 'dashboard':
         raise HTTPException(400,'Unknown setting')
-    if key == 'preferences':
-        payload.data = {'currency': 'INR', 'timezone': 'Asia/Kolkata', 'language': payload.data.get('language', 'en')}
     setting=get_setting(db,key)
     if setting:
         setting.value=payload.data

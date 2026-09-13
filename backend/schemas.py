@@ -42,6 +42,7 @@ class TradeInput(BaseModel):
     target_price: float | None = Field(default=None, ge=0)
     risk_amount: float | None = Field(default=None, gt=0)
     planned_entry: float | None = Field(default=None, ge=0)
+    playbook_id: str | None = Field(default=None, max_length=100)
     setup: str = Field(default='Uncategorized', max_length=100)
     emotion: str = Field(default='Neutral', max_length=50)
     rating: int = Field(default=3, ge=1, le=5)
@@ -126,6 +127,7 @@ class QueryPlan(BaseModel):
 
 
 class AIRequest(BaseModel):
+    model_tier: Literal['standard', 'advanced'] = 'standard'
     expected_credits: int | None = Field(default=None, ge=0, le=100000)
     message: str = Field(min_length=1, max_length=12000)
     thread_id: str | None = None
@@ -135,6 +137,7 @@ class AIRequest(BaseModel):
 
 
 class RecordInput(BaseModel):
+    expected_credits: int | None = Field(default=None, ge=0, le=1000)
     data: dict[str, Any]
 
     @field_validator('data')
@@ -144,3 +147,22 @@ class RecordInput(BaseModel):
         if len(json.dumps(value)) > 200000:
             raise ValueError('Record exceeds the allowed size')
         return value
+
+
+class PlaybookData(BaseModel):
+    model_config = ConfigDict(extra='ignore', strict=True)
+    title: str = Field(min_length=1,max_length=100)
+    description: str = Field(default='',max_length=4000)
+    checklist: list[str] = Field(default_factory=list,max_length=100)
+
+    @field_validator('title')
+    @classmethod
+    def title_text(cls,value):
+        if not value.strip():raise ValueError('Title is required')
+        return value.strip()
+
+    @field_validator('checklist')
+    @classmethod
+    def rules(cls,value):
+        if any(not x.strip() or len(x)>500 for x in value):raise ValueError('Each rule must contain 1–500 characters')
+        return [x.strip() for x in value]
