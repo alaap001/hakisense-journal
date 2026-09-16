@@ -6,7 +6,7 @@
 - All active application tables live in private schema `journal`, with RLS enabled and forced. Browser roles have no schema access.
 - `backend/.env`: contains the supplied backend secrets and a generated, restricted `DATABASE_URL`; file permissions are `0600`. Secrets were not copied into frontend configuration or build assets.
 - Real Supabase password sign-in, tenant isolation, one INR trade and one Qwen AI task were checked using disposable data, which was removed.
-- Razorpay checkout remains disabled. No real payment was created. Public hosting, production email delivery, domain and merchant policies are not configured by this repository.
+- Razorpay Standard Checkout passed local testing. `www.hakisense.in` is hosted on Render; during inspection it still served the previous build and reported checkout unavailable. Local keys are now live, and an ignored production payment environment overlay is prepared. Deploy the updated code and finish Render/webhook/merchant settings using [the production payment guide](docs/PRODUCTION_PAYMENTS.md).
 
 ## 1. Credentials and configuration
 
@@ -20,6 +20,7 @@ Use `backend/.env.example` as the reference. Existing environment values take pr
 | `SUPABASE_SECRET_KEY` | Optional operator verification script only; not needed by API or worker |
 | `OPENROUTER_API_KEY` | API and worker secrets; never browser-side |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Web/API secrets |
+| `RAZORPAY_ALLOW_TEST_CHECKOUT` | Optional hosted testing with test keys and owner/admin accounts; leave false for live payments |
 | `APP_ENV=production` | Hosted API and worker |
 | `APP_ORIGIN` | Exact HTTPS origin of your application |
 | `ALLOWED_HOSTS` | Comma-separated hostnames, without scheme/path; include `127.0.0.1` for container health probes |
@@ -48,12 +49,12 @@ Complete one real confirmation/reset-email round trip on the eventual domain bef
 
 ## 3. Payment setup
 
-The adapter uses hosted Razorpay **one-time Payment Links**. No recurring products or provider-plan binding is needed. Checkout URLs do not grant credits: signed webhooks or authenticated reconciliation fetch the link and captured payment, validate identity/amount/currency, and post the verified wallet delta. See [Razorpay Payment Links](https://razorpay.com/docs/api/payments/payment-links/create-standard/).
+The adapter uses Razorpay **Standard Web Checkout** with server-created orders and signature verification. The backend verifies captured payment identity, amount and currency before crediting the wallet. Signed webhooks and authenticated reconciliation recover interrupted checkouts. Existing Payment Links remain supported. See [local setup, endpoints and tests](docs/RAZORPAY_CHECKOUT.md).
 
 1. Configure merchant payment capabilities and backend Razorpay keys. Use a separate test-mode deployment before accepting real payments.
-2. Configure the webhook `https://YOUR-DOMAIN/api/webhooks/razorpay` for `payment_link.paid`, `payment_link.cancelled`, `payment_link.expired`, `refund.processed`, and applicable `payment.dispute.*` events. Set the matching signing secret.
+2. Configure automatic capture and the webhook `https://YOUR-DOMAIN/api/webhooks/razorpay` for `payment.captured`, `order.paid`, `refund.processed`, and applicable `payment.dispute.*` events. Keep `payment_link.paid`, `payment_link.cancelled` and `payment_link.expired` while old links exist. Set the matching signing secret.
 3. Set actual merchant identity/address, support email and HTTPS terms/privacy/refund policy URLs in **Admin → Product settings**. Displayed prices include applicable taxes; configure merchant invoicing consistently.
-4. Review credit packs in Admin. Enable recharge checkout only after these prerequisites are configured. Checkout creates links with email/SMS notification and reminder flags disabled.
+4. Review credit packs in Admin and enable recharge checkout after these prerequisites are configured. Local development with test keys can use synchronous verification without a public webhook or merchant policies. Hosted tests can opt in using `RAZORPAY_ALLOW_TEST_CHECKOUT=true` with test keys; only owner/admin accounts can use hosted test checkout. Live payments retain all prerequisites.
 5. Complete a bounded provider test-mode purchase/refund/webhook round trip on the deployed domain. This has not been executed in this workspace; no money was charged.
 6. Schedule a recovery pass every five minutes using the runtime credentials:
 

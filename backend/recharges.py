@@ -1,20 +1,24 @@
 """One-time credit purchases. The provider verifies money; wallet entries grant usage."""
 import hashlib
 from urllib.parse import urlparse
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from .auth import require_user, Identity, get_db
-from .db import (database, CreditPack, CreditPurchase, PurchaseIndex, WalletEntry,
+from .db import (database, AdminMember, CreditPack, CreditPurchase, PurchaseIndex, WalletEntry,
                  WebhookEvent, serialize, utcnow)
 from .wallet import get_wallet, intro_eligible, append
 from .entitlements import lock_user, snapshot
 from .payments import provider
+from .config import config
 from .runtime_settings import settings, checkout_ready
 from .security import rate_limit
 
 router = APIRouter(prefix='/api/billing', tags=['Credit wallet'])
 PENDING = ('creating','uncertain','ready')
+# Reuse the existing URL column to distinguish an unbound order from an old unbound link.
+STANDARD_CHECKOUT = 'razorpay:standard'
 
 
 class RechargeInput(BaseModel):
@@ -45,9 +49,14 @@ def prepare(db, payload, key):
                 raise HTTPException(409, {'code':'price_changed','message':'Your pending recharge has different terms. Review it in the wallet or cancel it before starting another.'})
             return pending, False
         raise HTTPException(409, 'Finish or cancel your pending recharge before choosing another pack.')
-    pack = db.scalar(select(CreditPack).where(CreditPack.code == payload.pack_code).with_for_update(read=True))
+    # Catalog access is intentionally read-only for hakisense_api. FOR SHARE also
+    # requires UPDATE privileges in PostgreSQL. Snapshot the validated terms from
+    # this read; get_wallet already holds the user's lock for purchase creation.
+    pack = db.scalar(select(CreditPack).where(CreditPack.code == payload.pack_code))
     if not pack or not pack.active:
         raise HTTPException(400, 'This recharge pack is unavailable.')
+    if pack.amount_paise < 100:
+        raise HTTPException(400, 'The minimum payment amount is 100 paise (₹1).')
     if (pack.amount_paise,pack.credits) != (payload.expected_amount_paise,payload.expected_credits):
         raise HTTPException(409, {'code':'price_changed','message':'This pack changed. Refresh and review its current price and credits.'})
     if pack.first_purchase_only and not intro_eligible(db,row):
@@ -72,6 +81,13 @@ def verify_link(purchase, remote):
 
 
 def bind(db, purchase, remote):
+    if str(remote.get('id','')).startswith('order_'):
+        verify_order(purchase,remote)
+        purchase.provider_id, purchase.payment_url = remote['id'], STANDARD_CHECKOUT
+        db.get(PurchaseIndex,purchase.id).provider_id = remote['id']
+        if purchase.status in PENDING:purchase.status='ready'
+        db.flush()
+        return
     verify_link(purchase, remote)
     url = remote.get('short_url','')
     if urlparse(url).scheme != 'https' or urlparse(url).hostname not in ('rzp.io','rzp.io.in','razorpay.com'):
@@ -84,23 +100,45 @@ def bind(db, purchase, remote):
     db.flush()
 
 
+def is_order(purchase):
+    return purchase.payment_url == STANDARD_CHECKOUT or bool(purchase.provider_id and purchase.provider_id.startswith('order_'))
+
+
+def verify_order(purchase, remote):
+    if (remote.get('receipt') != purchase.id or (remote.get('notes') or {}).get('hakisense_purchase') != purchase.id
+        or remote.get('amount') != purchase.amount_paise or remote.get('currency') != 'INR'
+        or not str(remote.get('id','')).startswith('order_')
+        or purchase.provider_id and purchase.provider_id != remote['id']):
+        raise HTTPException(409, 'Order identity or price did not match. No credits were added.')
+
+
+def require_test_operator(db, user_id):
+    if config.environment=='production' and config.razorpay_key.startswith('rzp_test_'):
+        member=db.get(AdminMember,user_id)
+        if not member or not member.active or member.role not in ('owner','admin'):
+            raise HTTPException(403,'Hosted test checkout is available only to administrators. Live payments are not enabled yet.')
+
+
+@router.post('/create-order')
 @router.post('/checkout')
 def checkout(payload:RechargeInput, identity:Identity=Depends(require_user), key:str|None=Header(default=None,alias='Idempotency-Key')):
     with database(identity.id) as db:
+        require_test_operator(db,identity.id)
         if not checkout_ready(settings(db)):
             raise HTTPException(503, 'Recharges will be available soon. All journal tools and your free credits remain available.')
         rate_limit(db,'recharge:'+identity.id,8,60)
         purchase,fresh = prepare(db,payload,key)
+        if fresh:purchase.payment_url=STANDARD_CHECKOUT
     if purchase.status not in PENDING:
         raise HTTPException(409, {'code':'checkout_closed','message':'This recharge is complete or closed. Refresh your wallet before starting another.'})
     if purchase.provider_id:
         reconcile_purchase(purchase.id, identity.id)
     else:
         try:
-            # A reference is unique at Razorpay too. Never POST again after an uncertain response.
-            remote = provider.credit_link(purchase) if fresh else provider.find_link(reference_id=purchase.id)
+            # Never POST again after an uncertain response; recover by our immutable receipt.
+            remote = provider.create_order(purchase) if fresh else provider.find_order(purchase.id) if is_order(purchase) else provider.find_link(reference_id=purchase.id)
             if not remote:
-                raise HTTPException(409, 'Payment-link confirmation is pending. Refresh the wallet; no duplicate link was created.')
+                raise HTTPException(409, 'Order confirmation is pending. Refresh payments before trying again.')
             with database(identity.id) as db:
                 lock_user(db)
                 bind(db,db.get(CreditPurchase,purchase.id),remote)
@@ -114,7 +152,35 @@ def checkout(payload:RechargeInput, identity:Identity=Depends(require_user), key
         row=db.get(CreditPurchase,purchase.id)
         if row.status not in PENDING:
             raise HTTPException(409, {'code':'checkout_closed','message':'This recharge is closed. Your wallet shows the latest status.'})
+        if is_order(row):
+            return {'id':row.id,'order_id':row.provider_id,'amount':row.amount_paise,'currency':'INR',
+                'key_id':config.razorpay_key,'name':settings(db).brand_name,'description':row.pack_name,
+                'status':row.status,'amount_paise':row.amount_paise,'credits':row.credits}
         return {'id':row.id,'url':row.payment_url,'status':row.status,'amount_paise':row.amount_paise,'credits':row.credits}
+
+
+@router.post('/verify-payment')
+def verify_payment(payload:dict|None=Body(default=None), identity:Identity=Depends(require_user)):
+    fields=('razorpay_order_id','razorpay_payment_id','razorpay_signature')
+    if not payload or any(not isinstance(payload.get(k),str) or not payload[k] for k in fields):
+        raise HTTPException(400, 'Order ID, payment ID and signature are required.')
+    order_id,payment_id,signature=(payload[k] for k in fields)
+    if (not order_id.startswith('order_') or not payment_id.startswith('pay_')
+        or any(len(v)>100 or not v.isascii() or not v.replace('_','').isalnum() for v in (order_id,payment_id))
+        or len(signature)!=64 or any(c not in '0123456789abcdef' for c in signature)):
+        raise HTTPException(400, 'Invalid payment verification fields.')
+    with database(identity.id) as db:
+        require_test_operator(db,identity.id)
+        rate_limit(db,'payment-verify:'+identity.id,20,60)
+        purchase=db.scalar(select(CreditPurchase).where(CreditPurchase.provider_id==order_id))
+        if not purchase:raise HTTPException(404, 'Recharge not found.')
+        # Use our stored order ID, never an unbound browser-supplied order.
+        provider.verify_signature(purchase.provider_id,payment_id,signature)
+    result=reconcile_purchase(purchase.id,identity.id,expected_payment_id=payment_id)
+    if result['status']!='paid':
+        return JSONResponse({'success':False,'verified':True,'purchase':result,
+            'message':'Payment signature verified; credits await captured payment confirmation. Use Refresh payments.'},status_code=202)
+    return {'success':True,'verified':True,'purchase':result}
 
 
 def settle(db, purchase, remote, payment=None, dispute=None):
@@ -125,10 +191,11 @@ def settle(db, purchase, remote, payment=None, dispute=None):
         purchase.status=remote['status']
         if row.first_purchase_id==purchase.id:row.first_purchase_id=None
     if payment is not None:
-        listed = {p.get('payment_id') for p in remote.get('payments') or []}
+        order = is_order(purchase)
+        listed = {payment.get('id')} if order else {p.get('payment_id') for p in remote.get('payments') or []}
         if (payment.get('id') not in listed or payment.get('amount') != purchase.amount_paise
-            or payment.get('currency') != 'INR' or payment.get('order_id') != remote.get('order_id')
-            or not remote.get('order_id') or remote.get('amount_paid') != purchase.amount_paise
+            or payment.get('currency') != 'INR' or payment.get('order_id') != (remote.get('id') if order else remote.get('order_id'))
+            or not (remote.get('id') if order else remote.get('order_id')) or remote.get('amount_paid') != purchase.amount_paise
             or payment.get('status') not in ('captured','refunded')):
             raise HTTPException(409, 'Captured payment did not match the recharge. No credits were added.')
         if purchase.payment_id and purchase.payment_id != payment['id']:
@@ -160,18 +227,25 @@ def settle(db, purchase, remote, payment=None, dispute=None):
     db.flush()
 
 
-def reconcile_purchase(purchase_id, user_id, dispute_id=None):
+def reconcile_purchase(purchase_id, user_id, dispute_id=None, expected_payment_id=None):
     with database(user_id) as db:
         purchase=db.get(CreditPurchase,purchase_id)
         if not purchase:raise HTTPException(404,'Recharge not found.')
         version=purchase.settlement_version
         previous_checked=purchase.checked_at
-    remote=provider.link(purchase.provider_id) if purchase.provider_id else provider.find_link(reference_id=purchase.id)
-    if not remote:raise HTTPException(409,'The payment provider has not confirmed this link yet. Try Refresh later.')
-    verify_link(purchase,remote)
-    captured=remote.get('payments') or []
-    payment_id=purchase.payment_id or next((p.get('payment_id') for p in captured if p.get('status')=='captured'),None)
+    order=is_order(purchase)
+    if order:
+        remote=provider.order(purchase.provider_id) if purchase.provider_id else provider.find_order(purchase.id)
+    else:
+        remote=provider.link(purchase.provider_id) if purchase.provider_id else provider.find_link(reference_id=purchase.id)
+    if not remote:raise HTTPException(409,'The payment provider has not confirmed this checkout yet. Try Refresh later.')
+    (verify_order if order else verify_link)(purchase,remote)
+    captured=provider.order_payments(remote['id']) if order and not (purchase.payment_id or expected_payment_id) else remote.get('payments') or []
+    payment_id=expected_payment_id or purchase.payment_id or next((p.get('id') if order else p.get('payment_id') for p in captured if p.get('status') in ('captured','refunded')),None)
     payment=provider.payment(payment_id) if payment_id else None
+    if payment and (payment.get('id')!=payment_id or payment.get('order_id')!=(remote['id'] if order else remote.get('order_id'))):
+        raise HTTPException(409,'Payment does not belong to this recharge. No credits were added.')
+    if payment and payment.get('status') not in ('captured','refunded'):payment=None
     dispute_id=dispute_id or purchase.dispute_id
     dispute=provider.request('GET','disputes/'+dispute_id) if dispute_id else None
     with database(user_id) as db:
@@ -218,6 +292,16 @@ def cancel(purchase_id:str,identity:Identity=Depends(require_user)):
         if not row:raise HTTPException(404,'Recharge not found.')
         if row.status in ('cancelled','expired'):return {'ok':True}
         if row.status not in PENDING:raise HTTPException(409,'This recharge already has a payment. Contact billing support for refunds.')
+    if is_order(row):
+        reconcile_purchase(row.id,identity.id)
+        with database(identity.id) as db:
+            get_wallet(db)
+            current=db.get(CreditPurchase,row.id)
+            if current.status not in PENDING:raise HTTPException(409,'Payment completed before cancellation. Your wallet has been updated.')
+            # Razorpay orders cannot be cancelled remotely. Keep the index for any late capture.
+            current.status='cancelled'
+            # Keep an introductory offer reserved: a still-open modal could capture this order later.
+        return {'ok':True}
     remote=provider.link(row.provider_id) if row.provider_id else provider.find_link(reference_id=row.id)
     if not remote:raise HTTPException(409,'Link creation is uncertain. Refresh later before cancelling.')
     verify_link(row,remote)
@@ -233,10 +317,19 @@ def process_topup_event(payload,event_type,event_id,digest):
     payment=payload.get('payment',{}).get('entity',{})
     refund=payload.get('refund',{}).get('entity',{})
     dispute=payload.get('dispute',{}).get('entity',{})
+    order=payload.get('order',{}).get('entity',{})
     payment_id=payment.get('id') or refund.get('payment_id') or dispute.get('payment_id')
+    # Refund/dispute events may contain only a payment ID, before any local settlement.
+    if payment_id and not payment.get('order_id') and not link.get('id'):
+        payment=provider.payment(payment_id)
+    order_id=order.get('id') or payment.get('order_id')
     with database(system=True) as db:
-        index=db.scalar(select(PurchaseIndex).where(PurchaseIndex.provider_id==link.get('id'))) if link.get('id') else None
+        provider_id=link.get('id') or order_id
+        index=db.scalar(select(PurchaseIndex).where(PurchaseIndex.provider_id==provider_id)) if provider_id else None
         if not index and payment_id:index=db.scalar(select(PurchaseIndex).where(PurchaseIndex.payment_id==payment_id))
+    if not index and order_id and not link.get('id'):
+        remote_order=provider.order(order_id)
+        with database(system=True) as db:index=db.get(PurchaseIndex,remote_order.get('receipt',''))
     if not index:
         remote=provider.link(link['id']) if link.get('id') else provider.find_link(payment_id=payment_id) if payment_id else None
         if not remote:return None

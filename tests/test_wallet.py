@@ -175,12 +175,11 @@ class CreditWalletTests(unittest.TestCase):
         from dataclasses import replace
         from backend import billing
         remote={}
-        def create_link(purchase):
-            remote.update({'id':'plink_http','reference_id':purchase.id,'notes':{'hakisense_purchase':purchase.id},
-                'amount':2400,'amount_paid':0,'currency':'INR','accept_partial':False,'status':'created',
-                'short_url':'https://rzp.io/i/fixture','order_id':'order_http','payments':[]})
+        def create_order(purchase):
+            remote.update({'id':'order_http','receipt':purchase.id,'notes':{'hakisense_purchase':purchase.id},
+                'amount':2400,'amount_paid':0,'currency':'INR','status':'created'})
             return remote.copy()
-        with patch('backend.recharges.checkout_ready',return_value=True),patch('backend.recharges.provider.credit_link',side_effect=create_link) as creation:
+        with patch('backend.recharges.checkout_ready',return_value=True),patch('backend.recharges.provider.create_order',side_effect=create_order) as creation:
             payload={'pack_code':'first_recharge','expected_amount_paise':2400,'expected_credits':50}
             stale=self.client.post('/api/billing/checkout',json={**payload,'expected_amount_paise':2100},headers={'Idempotency-Key':'http-stale-price-001'})
             self.assertEqual(stale.status_code,409,stale.text)
@@ -191,10 +190,10 @@ class CreditWalletTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],50)
         remote.update(status='paid',amount_paid=2400,payments=[{'payment_id':'pay_http','status':'captured'}])
         payment={'id':'pay_http','order_id':'order_http','amount':2400,'currency':'INR','status':'captured','amount_refunded':0}
-        raw=json.dumps({'event':'payment_link.paid','payload':{'payment_link':{'entity':{'id':'plink_http'}}}}).encode()
+        raw=json.dumps({'event':'order.paid','payload':{'order':{'entity':{'id':'order_http'}}}}).encode()
         secret='fixture-only-webhook'
         signature=hmac.new(secret.encode(),raw,hashlib.sha256).hexdigest()
-        with patch.object(billing,'config',replace(billing.config,razorpay_webhook_secret=secret)),patch('backend.recharges.provider.link',return_value=remote),patch('backend.recharges.provider.payment',return_value=payment):
+        with patch.object(billing,'config',replace(billing.config,razorpay_webhook_secret=secret)),patch('backend.recharges.provider.order',return_value=remote),patch('backend.recharges.provider.order_payments',return_value=[payment]),patch('backend.recharges.provider.payment',return_value=payment):
             for event in ('event-one','event-one','event-two'):
                 response=self.client.post('/api/webhooks/razorpay',content=raw,headers={'x-razorpay-signature':signature,'x-razorpay-event-id':event,'Content-Type':'application/json'})
                 self.assertEqual(response.status_code,200,response.text)

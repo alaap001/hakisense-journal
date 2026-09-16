@@ -66,14 +66,17 @@ async def response_headers(request: Request, call_next):
         response.headers['Cache-Control'] = 'no-store'
     if config.environment == 'production':
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-        response.headers['Content-Security-Policy'] = f"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' {config.supabase_url}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        response.headers['Content-Security-Policy'] = f"default-src 'self'; script-src 'self' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.razorpay.com; font-src 'self'; connect-src 'self' {config.supabase_url} https://*.razorpay.com; frame-src https://*.razorpay.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
     log.info('request id=%s method=%s status=%s duration_ms=%d', request_id, request.method, response.status_code, (time.monotonic()-started)*1000)
     return response
 
 
 @app.exception_handler(SQLAlchemyError)
 async def database_error(request: Request, exc):
-    log.error('database_error request_id=%s type=%s', getattr(request.state, 'request_id', ''), type(exc).__name__)
+    original = getattr(exc, 'orig', None)
+    log.error('database_error request_id=%s type=%s db_type=%s sqlstate=%s',
+              getattr(request.state, 'request_id', ''), type(exc).__name__,
+              type(original).__name__, getattr(original, 'sqlstate', None))
     if isinstance(exc, IntegrityError):
         return JSONResponse({'detail': 'This record conflicts with existing data. Refresh and try again.'}, status_code=409)
     return JSONResponse({'detail': 'The service is temporarily unavailable. Please try again shortly.'}, status_code=503)

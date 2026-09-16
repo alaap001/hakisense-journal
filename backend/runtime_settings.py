@@ -31,8 +31,12 @@ class ProductSettings(BaseModel):
     @field_validator('terms_url', 'privacy_url', 'refund_url')
     @classmethod
     def https_url(cls, value):
-        if value and (urlsplit(value).scheme != 'https' or not urlsplit(value).hostname or urlsplit(value).username):
-            raise ValueError('Use a complete HTTPS URL.')
+        if value:
+            u = urlsplit(value)
+            if config.environment in ('development', 'test') and u.scheme in ('http', 'https') and u.hostname in ('localhost', '127.0.0.1'):
+                return value
+            if u.scheme != 'https' or not u.hostname or u.username:
+                raise ValueError('Use a complete HTTPS URL.')
         return value
 
     @field_validator('support_email')
@@ -55,10 +59,24 @@ def settings(db):
     return ProductSettings.model_validate(row.value if row else defaults())
 
 
+def checkout_blockers(value):
+    missing=[]
+    if not value.checkout_enabled:missing.append('Enable recharge checkout in Product settings.')
+    if not config.razorpay_key:missing.append('Set RAZORPAY_KEY_ID on the API service.')
+    if not config.razorpay_secret:missing.append('Set RAZORPAY_KEY_SECRET on the API service.')
+    # Local test checkout can verify synchronously without a public webhook or merchant policies.
+    if config.razorpay_key.startswith('rzp_test_') and (config.environment in ('development','test') or config.razorpay_allow_test_checkout):
+        return missing
+    if not config.razorpay_webhook_secret:missing.append('Set RAZORPAY_WEBHOOK_SECRET to match the Razorpay webhook secret.')
+    for field,label in (('support_email','support email'),('legal_business_name','legal business name'),
+        ('legal_business_address','legal business address'),('terms_url','Terms URL'),
+        ('privacy_url','Privacy URL'),('refund_url','Refund policy URL')):
+        if not getattr(value,field):missing.append('Set '+label+' in Product settings.')
+    return missing
+
+
 def checkout_ready(value):
-    return bool(value.checkout_enabled and config.razorpay_key and config.razorpay_secret and config.razorpay_webhook_secret
-                and value.support_email and value.legal_business_name and value.legal_business_address
-                and value.terms_url and value.privacy_url and value.refund_url)
+    return not checkout_blockers(value)
 
 
 def routing(db, task_code, tier):

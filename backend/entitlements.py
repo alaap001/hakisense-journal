@@ -87,6 +87,8 @@ def public_catalog(db):
     for task in db.scalars(select(AITask)):
         tasks.append({**serialize(task),'credits':1,'advanced_credits':1,'max_credits':7})
     return {'billing_model':'pay_as_you_go', 'packs':packs, 'tasks':tasks, 'ai_pricing':public_policy(),
+        'payment_mode':'test' if config.razorpay_key.startswith('rzp_test_') else 'live' if config.razorpay_key.startswith('rzp_live_') else 'unconfigured',
+        'test_checkout_admin_only':config.environment=='production' and config.razorpay_key.startswith('rzp_test_'),
         'features':FEATURE_NAMES, 'upcoming_features':UPCOMING_FEATURE_NAMES,
         'monthly_free_credits':product.monthly_free_credits, 'playbook_creation_credits':product.playbook_creation_credits,
         'reference_credit_paise':product.reference_credit_paise,

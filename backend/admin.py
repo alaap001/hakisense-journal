@@ -12,7 +12,7 @@ from .auth import require_user, Identity
 from .db import (admin_database, AdminMember, AdminAudit, PlatformConfig, Profile, AITask,
     AIModel, AIRoute, AIJob, CreditWallet, WalletEntry, CreditPack, CreditPurchase, utcnow, serialize, uid)
 from .entitlements import aware
-from .runtime_settings import ProductSettings, settings, checkout_ready
+from .runtime_settings import ProductSettings, settings, checkout_ready, checkout_blockers
 from .config import config
 from .catalog import FEATURE_NAMES, UPCOMING_FEATURE_NAMES
 from .markets import month_key, IST
@@ -139,8 +139,11 @@ def overview(db=Depends(get_admin_db)):
         'ai_credits_charged_this_month':charged, 'ai_credits_reserved':reserved,
         'playbook_credits_this_month':playbooks, 'ai_usage_this_month':dict(zip(usage_keys,usage)),
         'jobs':jobs,'environment':config.environment,'period':month_key(),
-        'readiness':{'ai_key_configured':bool(config.openrouter_key),'payment_keys_configured':bool(config.razorpay_key and config.razorpay_secret and config.razorpay_webhook_secret),
-        'checkout_available':checkout_ready(settings(db)),'password_min_length':8}}
+        'readiness':{'ai_key_configured':bool(config.openrouter_key),'payment_keys_configured':bool(config.razorpay_key and config.razorpay_secret),
+        'checkout_available':checkout_ready(settings(db)), 'checkout_blockers':checkout_blockers(settings(db)),
+        'payment_mode':'live' if config.razorpay_key.startswith('rzp_live_') else 'test' if config.razorpay_key.startswith('rzp_test_') else 'unconfigured',
+        'webhook_configured':bool(config.razorpay_webhook_secret),
+        'webhook_url':config.origin.rstrip('/')+'/api/webhooks/razorpay','password_min_length':8}}
 
 
 @router.get('/users')
@@ -317,7 +320,7 @@ def save_settings(payload:SettingsChange,key:str|None=Header(default=None,alias=
         # Retain settings absent from the editor instead of resetting them to defaults.
         updated=ProductSettings.model_validate({**before, **payload.value.model_dump(exclude_unset=True)})
         if updated.checkout_enabled and not checkout_ready(updated):
-            raise HTTPException(400,'Configure payment secrets, merchant identity and support/policy links before enabling checkout.')
+            raise HTTPException(400,' '.join(checkout_blockers(updated)))
         row.value=updated.model_dump()
         return before,row.value
     return mutate(db,payload,key,'settings.save','product',apply)

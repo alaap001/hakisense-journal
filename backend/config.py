@@ -41,6 +41,7 @@ class Config:
     razorpay_key: str = os.getenv('RAZORPAY_KEY_ID', '')
     razorpay_secret: str = os.getenv('RAZORPAY_KEY_SECRET', '')
     razorpay_webhook_secret: str = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
+    razorpay_allow_test_checkout: bool = os.getenv('RAZORPAY_ALLOW_TEST_CHECKOUT', 'false').lower() == 'true'
     checkout_enabled: bool = os.getenv('CHECKOUT_ENABLED', 'false').lower() == 'true'
     support_email: str = os.getenv('SUPPORT_EMAIL', '')
     legal_name: str = os.getenv('LEGAL_BUSINESS_NAME', '')

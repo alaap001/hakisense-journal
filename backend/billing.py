@@ -39,7 +39,7 @@ def process_event(raw,signature,event_id):
         event_type,payload=event['event'],event.get('payload',{})
         if not isinstance(event_type,str) or not isinstance(payload,dict):raise ValueError()
     except (ValueError,KeyError,TypeError):raise HTTPException(400,'Invalid webhook payload.')
-    if not (event_type.startswith('payment_link.') or event_type.startswith('payment.') or event_type.startswith('refund.')):
+    if not (event_type.startswith('payment_link.') or event_type.startswith('payment.') or event_type.startswith('refund.') or event_type=='order.paid'):
         return {'ok':True,'ignored':True}
     return process_topup_event(payload,event_type,event_id,digest) or {'ok':True,'ignored':True}
 

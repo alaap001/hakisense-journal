@@ -65,7 +65,7 @@ New users receive a guided tour on their first authenticated workspace visit, wi
 | `backend/wallet.py`, `backend/recharges.py` | Persistent buckets, append-only ledger, purchase snapshots and verified settlement |
 | `backend/jobs.py`, `backend/worker.py` | Durable AI queue, reservations, settlement and refunds |
 | `backend/ai.py`, `backend/ai_models.json` | LangChain/LangGraph and OpenRouter routing |
-| `backend/billing.py`, `backend/payments.py` | Wallet API, hosted one-time checkout and signed webhooks |
+| `backend/billing.py`, `backend/payments.py`, `backend/recharges.py` | Wallet API, Razorpay Standard Checkout orders/signature verification and signed webhooks |
 | `backend/journal_routes.py`, `backend/repository.py` | Authenticated journal/import/export and bounded queries |
 | `backend/markets.py`, `backend/analytics.py`, `backend/simulator.py` | India conventions, journal calculations and replay |
 | `Dockerfile`, `compose.yaml` | Separate API/web, worker and migration processes |

@@ -1,0 +1,10 @@
+{
+  "brand_name": "HakiSense",
+  "legal_business_name": "REPLACE_WITH_YOUR_RAZORPAY_VERIFIED_LEGAL_NAME",
+  "legal_business_address": "REPLACE_WITH_YOUR_ACTUAL_BUSINESS_CONTACT_ADDRESS",
+  "support_email": "replace-me@example.invalid",
+  "terms_url": "https://example.invalid/terms",
+  "privacy_url": "https://example.invalid/privacy",
+  "refund_url": "https://example.invalid/refunds",
+  "checkout_enabled": true
+}
