@@ -8,6 +8,6 @@
     "z-ai/glm-flash-latest",
     "nvidia/nemotron-3.5-lightning"
   ],
-  "max_output_tokens": 2400,
+  "max_output_tokens": 16000,
   "request_timeout_seconds": 90
 }

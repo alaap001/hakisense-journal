@@ -6,6 +6,7 @@ import type { Catalog } from './types';
 import { PageTitle,Panel,Field,Button,ErrorState } from './ui';
 import { Select } from './Select';
 import './account.css';
+import { TourLauncher } from './Onboarding';
 
 const topics=['Getting started','Trades & imports','Credits & payments','AI credits','Sign-in & security','Privacy & account','Report a problem'];
 
@@ -22,6 +23,7 @@ export function HelpPage({publicPage=false}:{publicPage?:boolean}){
   },[workspace?.catalog,retry]);
 
   const questions=[
+    ['How are AI credits calculated?','Each review costs 1–7 credits, depending on the work needed. Up to 7 available credits are held while the review runs. Your final charge appears with the answer, and unused credits return to your wallet. Failed reviews are refunded. Stopping charges work already completed.','/billing','View pricing'],
     ['How do I add my first trade?','Open Trading accounts to add your broker account, then use Quick entry or Import trades. File imports show a mapping and preview before you commit your positions.','/trades','Open trade journal'],
     ['What can I use for free?',`All existing journal tools, unlimited trade entries, analytics and replay are unlocked. Each account receives ${catalog?.monthly_free_credits??50} free monthly credits. Creating a playbook costs ${catalog?.playbook_creation_credits??1} credits; edits and trade links are free.`,'/billing','View my wallet'],
     ['Where can I see credit usage and refunds?','Your wallet shows purchased and monthly free credits separately. Purchased credits never expire; free credits refresh monthly in IST. Failed AI tasks return their reserved credits.','/billing','View credit activity'],
@@ -34,7 +36,7 @@ export function HelpPage({publicPage=false}:{publicPage?:boolean}){
   const visible=questions.filter(q=>q.slice(0,2).join(' ').toLowerCase().includes(search.toLowerCase().trim()));
   const support=catalog?.legal.support_email||'';
   function destination(path:string){return publicPage?(path==='/billing'?'/pricing':'/login'):path;}
-  return <><PageTitle eyebrow="A LITTLE HELP, WHEN YOU NEED IT" title="Help & customer care" description="Find an answer, manage your account, or get in touch."/><div className="help-shortcuts">{[[BookOpen,'Journal & imports','Your trades, in one place.','/import'],[CreditCard,'Credits & payments','Recharges, usage and payment history.','/billing'],[ShieldCheck,'Account & security','Email, password and sessions.','/settings/security']].map(([Icon,title,text,path]:any)=><Link key={path} to={destination(path)}><Icon size={22}/><strong>{title}</strong><span>{text}</span><ArrowUpRight size={16}/></Link>)}</div>
+  return <><PageTitle eyebrow="A LITTLE HELP, WHEN YOU NEED IT" title="Help & customer care" description="Find an answer, manage your account, or get in touch."/>{!publicPage&&<TourLauncher/>}<div className="help-shortcuts">{[[BookOpen,'Journal & imports','Your trades, in one place.','/import'],[CreditCard,'Credits & payments','Recharges, usage and payment history.','/billing'],[ShieldCheck,'Account & security','Email, password and sessions.','/settings/security']].map(([Icon,title,text,path]:any)=><Link key={path} to={destination(path)}><Icon size={22}/><strong>{title}</strong><span>{text}</span><ArrowUpRight size={16}/></Link>)}</div>
     {loadError&&<><ErrorState message={loadError}/><Button onClick={()=>setRetry(v=>v+1)}>Retry support details</Button></>}
     <Panel title="Find an answer" className="section-gap"><div className="padded"><label className="help-search"><Search size={19}/><input type="search" aria-label="Search help articles" placeholder="Search payments, password, imports…" value={search} maxLength={120} onChange={e=>setSearch(e.target.value)}/></label><div className="help-questions">{visible.map(([q,a,path,label])=><details key={q}><summary>{q}</summary><p>{a}</p><Link to={destination(path)}>{label} →</Link></details>)}{!visible.length&&<p className="muted">No matching answers. Try a different term or prepare a message below.</p>}</div></div></Panel>
     <Panel title="Contact customer care" className="section-gap"><div className="help-contact"><div><span className="help-icon"><LifeBuoy size={28}/></span><h2>Let’s work it out.</h2><p>Describe what happened and what you expected. For payment questions, add the reference shown in your billing history.</p>{support?<a className="help-address" href={'mailto:'+support}><Mail size={16}/>{support}</a>:<p className="help-contact-unavailable">{catalog?'Email support is not available right now. You can prepare and copy your request below.':'Loading contact details…'}</p>}<p className="small muted">Please leave passwords, one-time codes and card details out of your message.</p></div>

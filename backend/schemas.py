@@ -134,6 +134,21 @@ class AIRequest(BaseModel):
     mode: Literal['chat', 'query', 'coach', 'daily', 'summary', 'trade_note'] = 'chat'
     filters: FilterInput = Field(default_factory=FilterInput)
     trade_id: str | None = None
+    pricing_version: str | None = None
+    max_credits: Literal[1, 2, 3, 4, 7] | None = None
+    check_id: str | None = Field(default=None, max_length=50)
+
+
+class AIContinue(BaseModel):
+    revision: int = Field(ge=0)
+    answer: str = Field(default='', max_length=12000)
+    max_credits: Literal[1, 2, 3, 4, 7] | None = None
+
+
+class AINoteAppend(BaseModel):
+    job_id: str
+    expected_notes: str = Field(max_length=10000)
+    draft: str = Field(min_length=1, max_length=10000)
 
 
 class RecordInput(BaseModel):

@@ -7,7 +7,7 @@ from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, case, cast, String
 from .auth import require_user, Identity
 from .db import (admin_database, AdminMember, AdminAudit, PlatformConfig, Profile, AITask,
     AIModel, AIRoute, AIJob, CreditWallet, WalletEntry, CreditPack, CreditPurchase, utcnow, serialize, uid)
@@ -16,6 +16,7 @@ from .runtime_settings import ProductSettings, settings, checkout_ready
 from .config import config
 from .catalog import FEATURE_NAMES, UPCOMING_FEATURE_NAMES
 from .markets import month_key, IST
+from .ai_pricing import policy as ai_policy, VERSION as AI_PRICING_VERSION
 
 router = APIRouter(prefix='/api/admin', tags=['Administration'])
 
@@ -119,13 +120,24 @@ def me(db=Depends(get_admin_db)):
 
 @router.get('/overview')
 def overview(db=Depends(get_admin_db)):
+    period_start = datetime.now(IST).replace(day=1,hour=0,minute=0,second=0,microsecond=0)
     jobs = dict(db.execute(select(AIJob.status,func.count(AIJob.id)).group_by(AIJob.status)).all())
     users = db.scalar(text('SELECT count(id) FROM journal.user_directory')) if db.bind.dialect.name=='postgresql' else db.scalar(select(func.count()).select_from(Profile))
+    charged = db.scalar(select(func.coalesce(func.sum(AIJob.credits),0)).where(
+        AIJob.status.in_(('succeeded','cancelled','partial')), AIJob.finished_at >= period_start))
+    reserved = db.scalar(select(func.coalesce(func.sum(case(
+        (AIJob.pricing_version == AI_PRICING_VERSION, AIJob.max_credits), else_=AIJob.credits)),0)).where(
+        AIJob.status.in_(('queued','running','awaiting_input'))))
+    playbooks = db.scalar(select(func.coalesce(func.sum(-WalletEntry.amount),0)).where(
+        WalletEntry.event_key.like('playbook:%'), WalletEntry.created_at >= period_start))
+    usage_keys = ('input_tokens','output_tokens','cached_tokens','reasoning_tokens','calls')
+    usage = db.execute(select(*(func.coalesce(func.sum(AIJob.usage[k].as_integer()),0) for k in usage_keys)).where(
+        AIJob.finished_at >= period_start)).one()
     return {'users':users,'suspended':db.scalar(select(func.count()).select_from(Profile).where(Profile.suspended.is_(True))),
         'paid_recharges':db.scalar(select(func.count()).select_from(CreditPurchase).where(CreditPurchase.payment_id.is_not(None))),
-        'credits_used_this_month':max(0,db.scalar(select(func.coalesce(func.sum(-WalletEntry.amount),0)).where(
-            WalletEntry.event_key.like('reserve:%')|WalletEntry.event_key.like('refund:%')|WalletEntry.event_key.like('playbook:%'),
-            WalletEntry.created_at>=datetime.now(IST).replace(day=1,hour=0,minute=0,second=0,microsecond=0)))),
+        'credits_used_this_month':charged+playbooks,
+        'ai_credits_charged_this_month':charged, 'ai_credits_reserved':reserved,
+        'playbook_credits_this_month':playbooks, 'ai_usage_this_month':dict(zip(usage_keys,usage)),
         'jobs':jobs,'environment':config.environment,'period':month_key(),
         'readiness':{'ai_key_configured':bool(config.openrouter_key),'payment_keys_configured':bool(config.razorpay_key and config.razorpay_secret and config.razorpay_webhook_secret),
         'checkout_available':checkout_ready(settings(db)),'password_min_length':8}}
@@ -216,10 +228,11 @@ def catalog(db=Depends(get_admin_db)):
     state=db.get(PlatformConfig,'product')
     return {'revision':state.revision,
         'packs':[serialize(x) for x in db.scalars(select(CreditPack).order_by(CreditPack.sort_order,CreditPack.code))],
-        'tasks':[serialize(x) for x in db.scalars(select(AITask).order_by(AITask.code))],
+        'tasks':[{'code':x.code,'name':x.name,'enabled':x.enabled} for x in db.scalars(select(AITask).order_by(AITask.code))],
+        'ai_pricing':ai_policy(),
         'models':[serialize(x) for x in db.scalars(select(AIModel).order_by(AIModel.name))],
         'routes':[serialize(x) for x in db.scalars(select(AIRoute).order_by(AIRoute.task_code,AIRoute.tier))],
-        'settings':settings(db).model_dump(),'features':FEATURE_NAMES,'upcoming_features':UPCOMING_FEATURE_NAMES}
+        'settings':settings(db).model_dump(exclude={'advanced_credit_multiplier'}),'features':FEATURE_NAMES,'upcoming_features':UPCOMING_FEATURE_NAMES}
 
 
 def safe_code(value):
@@ -229,7 +242,6 @@ def safe_code(value):
 
 class TaskChange(CatalogChange):
     name:str=Field(min_length=1,max_length=100)
-    credits:int=Field(ge=0,le=100000)
     enabled:bool=True
 
 
@@ -238,9 +250,9 @@ def save_task(code:str,payload:TaskChange,key:str|None=Header(default=None,alias
     def apply():
         row=db.get(AITask,code)
         if not row:raise HTTPException(404,'Task not found.')
-        before=serialize(row)
-        row.name,row.credits,row.enabled=payload.name,payload.credits,payload.enabled
-        return before,serialize(row)
+        before={'name':row.name,'enabled':row.enabled}
+        row.name,row.enabled=payload.name,payload.enabled
+        return before,{'name':row.name,'enabled':row.enabled}
     return mutate(db,payload,key,'task.save',code,apply)
 
 
@@ -268,7 +280,7 @@ def save_model(payload:ModelChange,key:str|None=Header(default=None,alias='Idemp
 class RouteChange(CatalogChange):
     model_id:str=Field(max_length=200)
     planner_model_id:str|None=Field(default=None,max_length=200)
-    max_output_tokens:int=Field(default=2400,ge=128,le=16000)
+    max_output_tokens:int=Field(default=16000,ge=128,le=16000)
     timeout_seconds:int=Field(default=90,ge=10,le=90)
     temperature:float=Field(default=0.2,ge=0,le=2,allow_inf_nan=False)
     reasoning_effort:Literal['none','minimal','low','medium','high']='low'
@@ -300,11 +312,13 @@ class SettingsChange(CatalogChange):
 @router.put('/settings')
 def save_settings(payload:SettingsChange,key:str|None=Header(default=None,alias='Idempotency-Key'),db=Depends(get_admin_db)):
     def apply():
-        if payload.value.checkout_enabled and not checkout_ready(payload.value):
-            raise HTTPException(400,'Configure payment secrets, merchant identity and support/policy links before enabling checkout.')
         row=db.get(PlatformConfig,'product')
         before=row.value.copy()
-        row.value=payload.value.model_dump()
+        # Retain settings absent from the editor instead of resetting them to defaults.
+        updated=ProductSettings.model_validate({**before, **payload.value.model_dump(exclude_unset=True)})
+        if updated.checkout_enabled and not checkout_ready(updated):
+            raise HTTPException(400,'Configure payment secrets, merchant identity and support/policy links before enabling checkout.')
+        row.value=updated.model_dump()
         return before,row.value
     return mutate(db,payload,key,'settings.save','product',apply)
 
@@ -353,11 +367,30 @@ def save_staff(user_id:str,payload:StaffChange,key:str|None=Header(default=None,
 
 
 @router.get('/jobs')
-def jobs(status:str=Query(default='',max_length=20),page:int=Query(default=1,ge=1,le=10000),db=Depends(get_admin_db)):
-    query=select(AIJob.id,AIJob.user_id,AIJob.status,AIJob.task_code,AIJob.credits,AIJob.model,AIJob.created_at,AIJob.finished_at,AIJob.error)
+def jobs(status:Literal['','queued','running','awaiting_input','succeeded','failed','cancelled','partial']='',
+         task:Literal['','chat','query','summary','daily','coach','trade_note']='',
+         q:str=Query(default='',max_length=100),page:int=Query(default=1,ge=1,le=10000),db=Depends(get_admin_db)):
+    query=select(AIJob.id,AIJob.user_id,AIJob.status,AIJob.task_code,AIJob.credits,AIJob.max_credits,AIJob.usage,
+        AIJob.pricing_version,AIJob.model,AIJob.routing_config,AIJob.cancel_requested,AIJob.heartbeat_at,
+        AIJob.created_at,AIJob.finished_at,AIJob.error)
     if status:query=query.where(AIJob.status==status)
+    if task:query=query.where(AIJob.task_code==task)
+    if q:query=query.where(AIJob.id.contains(q,autoescape=True)|cast(AIJob.user_id,String).contains(q,autoescape=True))
     rows=db.execute(query.order_by(AIJob.created_at.desc()).offset((page-1)*30).limit(31)).mappings().all()
-    return {'items':[dict(r) for r in rows[:30]],'has_more':len(rows)>30,'page':page}
+    items=[]
+    for row in rows[:30]:
+        item=dict(row)
+        route=item.pop('routing_config') or {}
+        item['routing']={k:route.get(k) for k in ('model_id','planner_model_id','tier','max_output_tokens','timeout_seconds','reasoning_effort')}
+        legacy=item['pricing_version']!='workflow-buckets-v1'
+        active=item['status'] in ('queued','running','awaiting_input')
+        maximum=item['credits'] if legacy else item['max_credits']
+        # Old failed jobs retained their reservation in credits; it was refunded.
+        charged=0 if item['status']=='failed' else None if active else item['credits']
+        item['billing']={'legacy':legacy,'maximum':maximum,'charged':charged,
+            'reserved':maximum if active else 0, 'released':None if active else maximum-charged}
+        items.append(item)
+    return {'items':items,'has_more':len(rows)>30,'page':page}
 
 
 @router.get('/audit')

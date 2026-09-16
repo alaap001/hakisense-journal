@@ -212,6 +212,40 @@ class AIJob(Tenant, Base):
     error: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pricing_version: Mapped[str] = mapped_column(String(40), default='legacy', server_default='legacy')
+    max_credits: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
+    usage: Mapped[dict] = mapped_column(JSON, default=dict, server_default='{}')
+    checkpoint: Mapped[dict] = mapped_column(JSON, default=dict, server_default='{}')
+    pause: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
+    event_sequence: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AIEvent(Tenant, Base):
+    __tablename__ = 'ai_events'
+    __table_args__ = (ForeignKeyConstraint(['user_id', 'job_id'], ['journal.ai_jobs.user_id', 'journal.ai_jobs.id'], ondelete='CASCADE'),)
+    job_id: Mapped[str] = mapped_column(String, primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AICall(Tenant, Base):
+    __tablename__ = 'ai_calls'
+    __table_args__ = (ForeignKeyConstraint(['user_id', 'job_id'], ['journal.ai_jobs.user_id', 'journal.ai_jobs.id'], ondelete='CASCADE'),)
+    job_id: Mapped[str] = mapped_column(String, primary_key=True)
+    call_key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    agent: Mapped[str] = mapped_column(String(40))
+    model: Mapped[str] = mapped_column(String(200))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(30), default='dispatched')
+    generation_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    usage: Mapped[dict] = mapped_column(JSON, default=dict)
+    response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 # Internal routing tables contain no journal text and are never exposed through Supabase's Data API.
@@ -304,7 +338,7 @@ class AIRoute(Base):
     tier: Mapped[str] = mapped_column(String, primary_key=True)
     model_id: Mapped[str] = mapped_column(String(200))
     planner_model_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    max_output_tokens: Mapped[int] = mapped_column(Integer, default=2400)
+    max_output_tokens: Mapped[int] = mapped_column(Integer, default=16000)
     timeout_seconds: Mapped[int] = mapped_column(Integer, default=90)
     temperature: Mapped[float] = mapped_column(Numeric(4, 2, asdecimal=False), default=0.2)
     reasoning_effort: Mapped[str] = mapped_column(String(20), default='low')

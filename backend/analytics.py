@@ -152,6 +152,8 @@ def group_rows(trades, dimension='symbol'):
 def coach_checks(trades):
     closed = sorted([t for t in trades if t['closed_quantity']>0],key=lambda t:t['entry_time'])
     m = statistics(trades)['metrics']
+    positive_risks = [t['risk'] for t in closed if t['risk'] > 0]
+    median_risk = median(positive_risks) if positive_risks else None
     after_loss = [b for a,b in zip(closed,closed[1:]) if a['net_pnl']<0 and a.get('exit_time') and 0 <= (datetime.fromisoformat(b['entry_time'])-datetime.fromisoformat(a['exit_time'])).total_seconds()<900]
     days = defaultdict(list)
     for t in closed:
@@ -177,7 +179,7 @@ def coach_checks(trades):
       ('low_rating','Low process ratings',[t for t in closed if t['rating']<=2],'Review process mistakes independently of whether the trade won.'),
       ('slippage','Adverse entry slippage',[t for t in closed if (t['slippage'] or 0)>0],'Compare planned versus executed entries; the difference is observed cost.'),
       ('giveback','Large favorable-excursion giveback',[t for t in closed if t.get('mfe') and t['net_pnl']<t['mfe']*.3],'Review exits against supplied MFE; a perfect hindsight exit is not an achievable baseline.'),
-      ('oversize','Risk above twice the median',[t for t in closed if t['risk']>2*median([x['risk'] for x in closed if x['risk']>0])] if any(x['risk']>0 for x in closed) else [],'Review whether unusually large risk was part of your plan.'),
+      ('oversize','Risk above twice the median',[t for t in closed if t['risk'] > 2*median_risk] if median_risk is not None else [],'Review whether unusually large risk was part of your plan.'),
     ]
     findings=[]
     for key,title,ts,action in specs:

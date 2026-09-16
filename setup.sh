@@ -10,6 +10,7 @@ else
   fi
   .venv/bin/python -m pip install -r backend/requirements.lock
 fi
+.venv/bin/python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
 npm ci --no-audit --no-fund
 if [[ ! -f backend/.env ]]; then cp backend/.env.example backend/.env; chmod 600 backend/.env; fi
 echo 'Dependencies installed. Configure backend/.env and run migrations before ./start.sh.'

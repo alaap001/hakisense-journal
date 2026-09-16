@@ -18,6 +18,7 @@ from .entitlements import consume_trades, require_feature, provision, snapshot, 
 from .markets import catalog, IST
 from . import simulator
 from .preferences import PreferencesInput, ProfileInput, effective_preferences
+from .onboarding import TourAction, state as onboarding_state, transition as transition_onboarding
 
 def enforce_features(request: Request, db=Depends(get_db)):
     path = request.url.path.removeprefix('/api/')
@@ -57,7 +58,7 @@ def workspace(identity: Identity = Depends(require_user), db=Depends(get_db)):
     settings = {s.key: s.value for s in db.scalars(select(Setting)) if s.key in ('preferences', 'dashboard')}
     accounts = [serialize(a) for a in db.scalars(select(Account))]
     settings['preferences'] = effective_preferences(settings.get('preferences'), {a['id'] for a in accounts})
-    return {'accounts': accounts, 'settings': settings,
+    return {'accounts': accounts, 'settings': settings, 'onboarding': onboarding_state(db),
             'currency': 'INR', 'timezone': 'Asia/Kolkata', 'user': {'id': identity.id, 'email': identity.email, 'name': profile.display_name},
             'billing': snapshot(db), 'catalog': public_catalog(db), 'markets': catalog(),
             'admin_role': member.role if member and member.active else None,
@@ -69,6 +70,18 @@ def update_profile(payload: ProfileInput, db=Depends(get_db)):
     profile = lock_user(db)
     profile.display_name = payload.data.display_name
     return {'ok': True}
+
+
+@api.get('/onboarding')
+def get_onboarding(identity: Identity = Depends(require_user), db=Depends(get_db)):
+    provision(db, identity.name)
+    return onboarding_state(db)
+
+
+@api.put('/onboarding')
+def update_onboarding(payload: TourAction, identity: Identity = Depends(require_user), db=Depends(get_db)):
+    provision(db, identity.name)
+    return transition_onboarding(db, payload)
 
 @api.get('/trades')
 def trades(filters:FilterInput=Depends(),db:DBSession=Depends(get_db)):
@@ -123,6 +136,26 @@ def delete_trade(trade_id:str,db:DBSession=Depends(get_db)):
         raise HTTPException(404,'Trade not found')
     db.delete(t)
     return {'ok':True}
+
+
+from .schemas import AINoteAppend
+
+
+@api.post('/trades/{trade_id}/ai-note')
+def append_ai_note(trade_id:str, payload:AINoteAppend, db:DBSession=Depends(get_db)):
+    from .db import AIJob
+    t = db.scalar(select(Trade).where(Trade.id == trade_id).with_for_update())
+    job = db.get(AIJob, payload.job_id)
+    if not t or not job or job.status != 'succeeded' or job.request.get('trade_id') != trade_id:
+        raise HTTPException(404, 'Completed trade review not found.')
+    if t.notes != payload.expected_notes:
+        raise HTTPException(409, 'These notes changed after you opened the trade. Reopen it and review the latest notes before appending.')
+    notes = t.notes + ('\n\n' if t.notes else '') + payload.draft.strip()
+    if len(notes) > 10000:
+        raise HTTPException(422, 'Combined trade notes exceed 10,000 characters. Shorten the draft before appending.')
+    t.notes, t.fingerprint, t.is_demo = notes, None, False
+    db.flush()
+    return enrich(serialize(t))
 
 
 @api.get('/analytics')
@@ -354,14 +387,16 @@ def ai_threads(db:DBSession=Depends(get_db)):
 
 @api.get('/ai/threads/{thread_id}')
 def ai_messages(thread_id:str,db:DBSession=Depends(get_db)):
-    return [serialize(m) for m in db.scalars(select(Message).where(Message.thread_id==thread_id).order_by(Message.created_at))]
+    from .ai_public import metadata
+    return [{**serialize(m), 'metadata_json': metadata(m.metadata_json)} for m in db.scalars(select(Message).where(Message.thread_id==thread_id).order_by(Message.created_at))]
 
 
 @api.get('/backup')
 def backup(db:DBSession=Depends(get_db)):
+    from .ai_public import metadata
     data={'version':2,'exported_at':now(),'accounts':[serialize(a) for a in db.scalars(select(Account))],
           'trades':[serialize(t) for t in db.scalars(select(Trade))],'records':[serialize(r) for r in db.scalars(select(Record))],
-          'messages':[serialize(m) for m in db.scalars(select(Message))],'settings':[serialize(s) for s in db.scalars(select(Setting))]}
+          'messages':[{**serialize(m), 'metadata_json': metadata(m.metadata_json)} for m in db.scalars(select(Message))],'settings':[serialize(s) for s in db.scalars(select(Setting))]}
     return Response(json.dumps(data),media_type='application/json',headers={'Content-Disposition':'attachment; filename=hakisense-backup.json'})
 
 

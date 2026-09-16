@@ -11,14 +11,15 @@
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.6",
     "@fontsource/space-grotesk": "^5.2.10",
+    "@supabase/supabase-js": "2.116.0",
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.6.0",
     "recharts": "^3.1.0",
-    "zustand": "^5.0.5",
-    "@supabase/supabase-js": "2.116.0"
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",

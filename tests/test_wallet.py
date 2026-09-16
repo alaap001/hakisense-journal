@@ -69,7 +69,7 @@ class CreditWalletTests(unittest.TestCase):
             payment['amount_refunded']=payment['amount'];payment['status']='refunded'
             settle(db,p,link,payment)
             self.assertFalse(intro_eligible(db))
-            with self.assertRaises(HTTPException):prepare(db,RechargeInput(pack_code='first_recharge',expected_amount_paise=2100,expected_credits=999),'purchase-002')
+            with self.assertRaises(HTTPException):prepare(db,RechargeInput(pack_code='first_recharge',expected_amount_paise=2400,expected_credits=999),'purchase-002')
             self.balanced(db)
 
     def test_reversals_debt_and_dispute_recovery(self):
@@ -107,10 +107,10 @@ class CreditWalletTests(unittest.TestCase):
     def test_ai_advanced_reservation_and_failure(self):
         with store.database(self.a) as db:
             task=db.get(store.AITask,'chat')
-            job=enqueue(db,AIRequest(message='Fixture only',model_tier='advanced',expected_credits=task.credits*3),'advanced-001')
-            self.assertEqual(job.credits,task.credits*3)
+            job=enqueue(db,AIRequest(message='Fixture only',model_tier='advanced',max_credits=7,pricing_version='workflow-buckets-v1'),'advanced-001')
+            self.assertEqual(job.max_credits,7);self.assertEqual(job.credits,0)
             self.assertEqual(job.routing_config['tier'],'advanced')
-            self.assertEqual(enqueue(db,AIRequest(message='Fixture only',model_tier='advanced',expected_credits=task.credits*3),'advanced-001').id,job.id)
+            self.assertEqual(enqueue(db,AIRequest(message='Fixture only',model_tier='advanced',max_credits=7,pricing_version='workflow-buckets-v1'),'advanced-001').id,job.id)
             job_id=job.id
         finish(self.a,job_id,error='Fixture failure')
         finish(self.a,job_id,error='Duplicate failure')
@@ -161,7 +161,9 @@ class CreditWalletTests(unittest.TestCase):
         catalog=self.client.get('/api/catalog').json()
         self.assertEqual(catalog['billing_model'],'pay_as_you_go')
         self.assertNotIn('prices',catalog)
-        self.assertEqual([p['discount_percent'] for p in catalog['packs']],[58,0,66.8,87.5])
+        self.assertEqual([p['discount_percent'] for p in catalog['packs']],[52,0,66.8,87.5])
+        prices={p['code']:p['amount_paise'] for p in catalog['packs']}
+        self.assertEqual((prices['first_recharge'],prices['starter_50']),(2400,5000))
         self.assertEqual(catalog['packs'][-1]['value_multiple'],8)
         self.assertIn('replay',self.work['billing']['features'])
         self.assertIn('playbooks',self.work['billing']['features'])
@@ -175,17 +177,20 @@ class CreditWalletTests(unittest.TestCase):
         remote={}
         def create_link(purchase):
             remote.update({'id':'plink_http','reference_id':purchase.id,'notes':{'hakisense_purchase':purchase.id},
-                'amount':2100,'amount_paid':0,'currency':'INR','accept_partial':False,'status':'created',
+                'amount':2400,'amount_paid':0,'currency':'INR','accept_partial':False,'status':'created',
                 'short_url':'https://rzp.io/i/fixture','order_id':'order_http','payments':[]})
             return remote.copy()
         with patch('backend.recharges.checkout_ready',return_value=True),patch('backend.recharges.provider.credit_link',side_effect=create_link) as creation:
-            payload={'pack_code':'first_recharge','expected_amount_paise':2100,'expected_credits':50}
+            payload={'pack_code':'first_recharge','expected_amount_paise':2400,'expected_credits':50}
+            stale=self.client.post('/api/billing/checkout',json={**payload,'expected_amount_paise':2100},headers={'Idempotency-Key':'http-stale-price-001'})
+            self.assertEqual(stale.status_code,409,stale.text)
+            creation.assert_not_called()
             result=self.client.post('/api/billing/checkout',json=payload,headers={'Idempotency-Key':'http-checkout-001'})
             self.assertEqual(result.status_code,200,result.text)
             self.assertEqual(creation.call_count,1)
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],50)
-        remote.update(status='paid',amount_paid=2100,payments=[{'payment_id':'pay_http','status':'captured'}])
-        payment={'id':'pay_http','order_id':'order_http','amount':2100,'currency':'INR','status':'captured','amount_refunded':0}
+        remote.update(status='paid',amount_paid=2400,payments=[{'payment_id':'pay_http','status':'captured'}])
+        payment={'id':'pay_http','order_id':'order_http','amount':2400,'currency':'INR','status':'captured','amount_refunded':0}
         raw=json.dumps({'event':'payment_link.paid','payload':{'payment_link':{'entity':{'id':'plink_http'}}}}).encode()
         secret='fixture-only-webhook'
         signature=hmac.new(secret.encode(),raw,hashlib.sha256).hexdigest()

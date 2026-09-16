@@ -13,6 +13,8 @@ WORKDIR /app
 RUN groupadd --system hakisense && useradd --system --gid hakisense --home-dir /app hakisense
 COPY backend/requirements.lock /app/backend/requirements.lock
 RUN pip install --no-cache-dir -r backend/requirements.lock
+ENV TIKTOKEN_CACHE_DIR=/app/tokenizer-cache
+RUN python -c "import tiktoken; tiktoken.get_encoding('o200k_base')" && chmod -R a+rX /app/tokenizer-cache
 COPY backend /app/backend
 COPY scripts /app/scripts
 COPY migrations /app/migrations

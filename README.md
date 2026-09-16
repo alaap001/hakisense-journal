@@ -10,42 +10,35 @@ All existing tools and unlimited trade entries are available to everyone. AI tas
 
 | Recharge | Credits | One-time price |
 | --- | ---: | ---: |
-| First purchase only | 50 | ₹21 (58% off) |
-| Starter | 50 | ₹50 |
+| Starter | 50 | ₹50; first recharge ₹24 (52% off, once per account) |
 | Review | 600 | ₹199 (66.8% off; 3.02× value) |
 | Deep dive | 4,000 | ₹500 (87.5% off; 8× value) |
 
-The default reference rate is ₹1 per credit. Prices, pack sizes, eligibility, task costs and models come from the backend and can be edited in Administration. Checkout snapshots its terms, so later catalog changes cannot rewrite a pending purchase.
+The default reference rate is ₹1 per credit. Prices, pack sizes, eligibility, playbook costs and models come from the backend and can be edited in Administration. Checkout snapshots its terms, so later catalog changes cannot rewrite a pending purchase.
 
 Each account receives 50 monthly free credits by default. Free credits refresh at midnight IST on the first and are spent first; purchased and admin-granted credits never expire. Refunds restore failed AI reservations once. Payment reversals can create an outstanding credit balance, which future recharges repay. See the [design and implementation guide](docs/PAY_AS_YOU_GO.md).
 
-| AI task | Initial credit cost |
-| --- | --- |
-| Trade note | 1 |
-| Chat or summary | 2 |
-| Daily preparation | 3 |
-| Query and chart | 4 |
-| Coaching review | 5 |
+AI workflows cost **1–7 credits** based on total input and output across their agents. The smallest bucket fitting both totals applies: 8k/2k → 1; 16k/4k → 2; 32k/6k → 3; 64k/8k → 4; 128k/16k → 7. The workflow limits are **100k input and 16k output**. Standard and Advanced use the same buckets.
 
-AI requests reserve credits in the same database transaction that creates a durable job. Duplicate request keys return the same job. Results and conversation messages settle together; failed or abandoned jobs refund once. Provider calls are never automatically retried by the worker. Activity remains accessible after a page reload.
+The queue automatically reserves an affordable allowance, saves the final result transactionally, and releases unused credits. Genuine clarification pauses can be resumed through AI activity. Stopping charges recorded work; failed tasks refund their reservation. Completed provider calls are not replayed. See [AI workflows and credit buckets](docs/ai-workflow-redesign/README.md) for contracts, token-estimation limits, streaming, migration and verification.
 
 ## Administration
 
 User-facing profile, security, preferences, trading accounts, wallet and Help pages are connected through the account menus and `/settings`. See [Account settings and support](docs/ACCOUNT_SETTINGS.md) for routes, backend behavior and support-email configuration.
 
-Use **Administration** in the sidebar, or `/admin`, after assigning an owner. [ADMIN_GUIDE.md](ADMIN_GUIDE.md) explains first-owner setup, user management, recharge-pack editing, credits, model routing, product settings and audit history. No account is promoted automatically.
+Use **Administration** in the sidebar, or `/admin`, after assigning an owner. [Administration guide](docs/admin/README.md) explains first-owner setup, user management, recharge-pack editing, credits, model routing, product settings and audit history. No account is promoted automatically.
 
 The proposed input-validation work is documented in [VALIDATION_PLAN.md](VALIDATION_PLAN.md), with a complete field matrix, rule catalog, and acceptance examples. It separates existing checks from changes still to implement.
 
 ## Backend model configuration
 
-Models are now managed in **Administration → AI configuration**. PostgreSQL stores a route for every task and tier, including an optional query-planning model, token/time limits, reasoning effort and supplemental instructions. The defaults remain `qwen/qwen3.7-flash` for Standard and `z-ai/glm-5.3-flash` for Advanced. Jobs snapshot that configuration before entering the queue; LangGraph consumes the snapshot.
+Models are now managed in **Administration → AI configuration**. PostgreSQL stores a route for every task and tier, including an optional planning model, token/time limits, reasoning effort and supplemental instructions. The defaults remain `qwen/qwen3.7-flash` for Standard and `z-ai/glm-5.3-flash` for Advanced. Jobs snapshot that configuration before entering the queue; LangGraph consumes the snapshot.
 
 `backend/ai_models.json` and model environment variables are bootstrap inputs, not runtime overrides of the database. Add or select model IDs in the panel. Its provider-catalog search does not make a generation call.
 
 `OPENROUTER_API_KEY` belongs in backend deployment secrets. There is no customer API-key setting. The browser receives only the Supabase publishable key. The server validates the requested Standard/Advanced mode and chooses its configured model and snapshots it when the job is submitted.
 
-LangGraph collects the user's scoped journal/history, optionally plans allowlisted query filters, calculates metrics, then asks the selected model to explain the evidence. Normal tasks use one generation call; query/chart can use two. There are no model calls on page load. Models cannot execute code, change trades, place orders or claim live market knowledge.
+LangGraph connects a planning agent to deterministic evidence tools and an answer agent that streams the result. Concepts skip retrieval; latest-N questions select those trades before reading notes. Numeric calculations do not load notes; relevant records are retrieved on demand. Chat includes at most two previous messages. There are no model calls on page load. Models cannot execute code, change trades, place orders or claim live market knowledge.
 
 ## Indian market conventions
 
@@ -57,6 +50,8 @@ LangGraph collects the user's scoped journal/history, optionally plans allowlist
 - `public/sample-trades.csv` and `public/sample-candles.csv` contain synthetic examples. Replay uses uploaded OHLC data or a clearly labelled synthetic NIFTY-scale series.
 
 ## Application modules
+
+New users receive a guided tour on their first authenticated workspace visit, with highlights, arrows, Next/Back/Skip controls and account-saved progress. Existing users can launch it from **My account → Help & customer care**. See [First-login guided tour](docs/onboarding/README.md) for the lifecycle, API and verification details.
 
 | Location | Responsibility |
 | --- | --- |
@@ -83,7 +78,9 @@ Dependencies are already installed here. On a new checkout, run `./setup.sh`, co
 ./start.sh
 ```
 
-This launches the API, Vite and the AI worker. Open `http://127.0.0.1:5173/`. Customer data still lives in Supabase; this command only runs the application processes on your machine. Email verification requires working Supabase email settings. No demonstration account is seeded.
+This launches the API, Vite and the AI worker, with prefixed output in the terminal and persistent logs in `logs/api.log`, `logs/worker.log` and `logs/frontend.log`. Open `http://127.0.0.1:5173/`. Customer data still lives in Supabase; this command only runs the application processes on your machine. Email verification requires working Supabase email settings. No demonstration account is seeded.
+
+The worker log records job IDs, model-call starts/completions, usage and diagnostic failure reasons without journal contents. The API log records HTTP requests. To follow both live, run `tail -f logs/api.log logs/worker.log` in a terminal. API source edits reload automatically; restart `./start.sh` after changing AI worker code.
 
 ```bash
 npm run build

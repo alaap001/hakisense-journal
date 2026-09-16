@@ -38,7 +38,11 @@ export function AccountMenu({variant='workspace'}:{variant?:'workspace'|'profile
   ] as const;
   return <><button ref={trigger} type="button" className={`account-trigger account-trigger-${variant}`} aria-label={variant==='avatar'?'Open user profile menu':`Account menu for ${user.name}`} aria-haspopup="menu" aria-expanded={open} aria-controls={open?id:undefined} onClick={()=>{setError('');setOpen(!open);}} onKeyDown={e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();setOpen(true);}}}>
     <span className="account-avatar">{initial}</span>{variant!=='avatar'&&<span className="account-trigger-label"><strong>{user.name}</strong><small>{variant==='workspace'?`${billing.label} · India`:user.email}</small></span>}<ChevronDown size={15} className={open?'menu-chevron open':'menu-chevron'}/>
-  </button>{open&&createPortal(<div id={id} ref={menu} className="account-menu" role="menu" aria-label="Your account" style={position} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node)&&e.relatedTarget!==trigger.current)setOpen(false);}} onKeyDown={e=>{
+  </button>{open&&createPortal(<div id={id} ref={menu} className="account-menu" role="menu" aria-label="Your account" style={position} onBlur={e=>{
+    // Safari can report no next focus target when clicking another menu item.
+    // Keep it mounted for the click; the outside pointer handler dismisses click-away.
+    if(e.relatedTarget&&!e.currentTarget.contains(e.relatedTarget as Node)&&e.relatedTarget!==trigger.current)setOpen(false);
+  }} onKeyDown={e=>{
     if(e.key==='Escape'){e.preventDefault();setOpen(false);trigger.current?.focus();return;}
     const items=Array.from(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)')||[]);
     const current=items.indexOf(document.activeElement as HTMLElement);

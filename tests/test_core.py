@@ -117,9 +117,9 @@ class ProductionCore(unittest.TestCase):
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'],50)
 
     def test_credit_reservation_idempotency_and_refund_once(self):
-        payload = {'message': 'Review my journal', 'mode': 'chat', 'expected_credits': 2}
+        payload = {'message': 'Review my journal', 'mode': 'chat', 'max_credits': 2, 'pricing_version': 'workflow-buckets-v1'}
         headers = {'Idempotency-Key': 'same-request-123'}
-        stale = self.client.post('/api/ai/query', json={**payload, 'expected_credits': 1}, headers=headers)
+        stale = self.client.post('/api/ai/query', json={**payload, 'pricing_version': 'obsolete'}, headers=headers)
         self.assertEqual(stale.status_code, 409)
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'], 50)
         first = self.client.post('/api/ai/query', json=payload, headers=headers)
@@ -133,12 +133,14 @@ class ProductionCore(unittest.TestCase):
         finish(self.a, first.json()['id'], error='Fixture failure')
         self.assertEqual(self.client.get('/api/billing/me').json()['credits']['remaining'], 50)
         with store.database(self.a) as db:
-            self.assertEqual(db.scalar(select(func.count()).select_from(store.WalletEntry).where(store.WalletEntry.event_key.like('refund:%'))), 1)
+            self.assertEqual(db.scalar(select(func.count()).select_from(store.WalletEntry).where(store.WalletEntry.event_key.like('settle:%'))), 1)
 
     def test_ai_result_saved_once_and_job_is_private(self):
-        response = self.client.post('/api/ai/query', json={'message': 'Review', 'mode': 'trade_note', 'expected_credits': 1}, headers={'Idempotency-Key': 'success-request'})
+        response = self.client.post('/api/ai/query', json={'message': 'Review', 'mode': 'chat', 'max_credits': 1, 'pricing_version': 'workflow-buckets-v1'}, headers={'Idempotency-Key': 'success-request'})
         job_id = response.json()['id']
         result = {'thread_id': str(uuid4()), 'answer': 'Fixture result, no model called.', 'chart': None}
+        with store.database(self.a) as db:
+            db.get(store.AIJob,job_id).usage={'input_tokens':100,'output_tokens':100,'calls':1}
         finish(self.a, job_id, result)
         finish(self.a, job_id, result)
         self.assertEqual(len(self.client.get('/api/ai/threads/' + result['thread_id']).json()), 2)

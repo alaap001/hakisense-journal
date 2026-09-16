@@ -47,13 +47,15 @@ export async function waitForJob(id:string){
   for(let i=0;i<120;i++){
     const job=await api('/ai/jobs/'+id);
     if(job.status==='succeeded'){useStore.getState().refresh();return job.result;}
+    if(job.status==='awaiting_input')throw new Error('Your input is needed. Open this review in Recent reviews in AI coach.');
+    if(job.status==='cancelled')throw new Error('This review was stopped. Its credits were released.');
     if(job.status==='failed'){useStore.getState().refresh();throw new Error(job.error||'The review failed. Your credits were refunded.');}
     await new Promise(resolve=>setTimeout(resolve,2000));
   }
-  useStore.getState().refresh();throw new Error('Your review is still processing. View its progress in AI activity.');
+  useStore.getState().refresh();throw new Error('Your review is still processing. View its progress in Recent reviews in AI coach.');
 }
 export async function post(path:string,data:unknown):Promise<any>{
-  const body=path==='/ai/query'?{...(data as Record<string,unknown>),expected_credits:creditsFor((data as any).mode||'chat',(data as any).model_tier||'standard')}:data;
+  const body=data;
   const init={method:'POST',body:JSON.stringify(body),headers:{'Idempotency-Key':crypto.randomUUID()}};
   if(path==='/ai/query'){
     let job;
@@ -69,7 +71,7 @@ export async function downloadApi(path:string,name:string){
   const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=name;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 export const creditsFor=(mode:string,tier='standard')=>{const task=useStore.getState().workspace?.catalog.tasks.find(t=>t.code===mode);return tier==='advanced'?task?.advanced_credits:task?.credits;};
-export const creditLabel=(mode:string,tier='standard')=>`${creditsFor(mode,tier)??'—'} credits`;
+export const creditLabel=(_mode:string,_tier='standard')=>'1–7 credits';
 export const hasFeature=(feature:string)=>!!useStore.getState().workspace?.billing.features.includes(feature);
 export const qs=(filters:Partial<Filters>)=>'?'+new URLSearchParams(Object.entries(filters).filter(([,v])=>v)).toString();
 export function useData<T=any>(path:string,enabled=true){

@@ -1,0 +1,161 @@
+{
+  "method": "Synthetic fixtures passed to existing backend.ai.analyze; evidence only; excludes system instructions, chat history, user message, planner call, tool schemas and output; no token or monetary measurement.",
+  "results": [
+    {
+      "mode": "chat",
+      "trades_analyzed": 0,
+      "note_characters": 0,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 0,
+      "additional_selected_trade": false,
+      "evidence_characters": 5626,
+      "evidence_utf8_bytes": 5628,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "chat",
+      "trades_analyzed": 1,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 1,
+      "additional_selected_trade": false,
+      "evidence_characters": 9124,
+      "evidence_utf8_bytes": 9126,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "chat",
+      "trades_analyzed": 10,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 10,
+      "additional_selected_trade": false,
+      "evidence_characters": 25258,
+      "evidence_utf8_bytes": 25260,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "chat",
+      "trades_analyzed": 60,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 61508,
+      "evidence_utf8_bytes": 61510,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "chat",
+      "trades_analyzed": 100,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 63581,
+      "evidence_utf8_bytes": 63583,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "chat",
+      "trades_analyzed": 1000,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 67163,
+      "evidence_utf8_bytes": 67165,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "chat",
+      "trades_analyzed": 100,
+      "note_characters": 1500,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 141581,
+      "evidence_utf8_bytes": 141583,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "chat",
+      "trades_analyzed": 1000,
+      "note_characters": 1500,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 145163,
+      "evidence_utf8_bytes": 145165,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "trade_note",
+      "trades_analyzed": 1000,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": true,
+      "evidence_characters": 68259,
+      "evidence_utf8_bytes": 68261,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "summary",
+      "trades_analyzed": 1000,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 67163,
+      "evidence_utf8_bytes": 67165,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "daily",
+      "trades_analyzed": 1000,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 67163,
+      "evidence_utf8_bytes": 67165,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "coach",
+      "trades_analyzed": 1000,
+      "note_characters": 200,
+      "unique_symbols": false,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 67163,
+      "evidence_utf8_bytes": 67165,
+      "model_chart_groups": 0,
+      "frontend_chart_groups": 0
+    },
+    {
+      "mode": "query",
+      "trades_analyzed": 1000,
+      "note_characters": 200,
+      "unique_symbols": true,
+      "recent_trade_details_sent": 60,
+      "additional_selected_trade": false,
+      "evidence_characters": 131592,
+      "evidence_utf8_bytes": 131594,
+      "model_chart_groups": 50,
+      "frontend_chart_groups": 1000
+    }
+  ]
+}

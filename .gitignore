@@ -14,7 +14,7 @@ Thumbs.db:encryptable
 .directory
 .Trash-*
 
-# Environment Variables & Secrets
+# Environment Variables & Secrets (commit examples, never real values)
 .env
 .env.*
 .env.local
@@ -23,6 +23,12 @@ Thumbs.db:encryptable
 *.env.*
 !.env.example
 !**/.env.example
+!.env.*.example
+!*.env.example
+.envrc
+.envrc.local
+.direnv/
+.secrets/
 *.pem
 *.key
 *.cert
@@ -37,7 +43,10 @@ dist-ssr/
 *.tsbuildinfo
 .vite/
 .vite-temp/
-.eslintcache/
+.eslintcache
+.stylelintcache
+.npm/
+.pnpm-store/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -85,6 +94,11 @@ coverage/
 *.cover
 .tox/
 .nox/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/
 
 # Databases & Local Storage
 data/
@@ -93,7 +107,13 @@ data/
 *.db-wal
 *.db-journal
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
 *.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-journal
 *.dump
 
 # Docker & Compose Local Overrides
@@ -130,7 +150,15 @@ compose.override.yaml
 .claude/
 .cursor/
 
+# Account-specific local seed/debug helpers (contain personal data or credentials)
+/scripts/check_user_state.py
+/scripts/seed_test_user.py
+/scripts/seed_100_trades.py
+/scripts/user_trade_generation/seed.py
+/scripts/user_trade_generation/verify.py
+
 # Logs & Temporary Files
+.cache/
 logs/
 *.log
 *.tmp
@@ -140,12 +168,8 @@ temp/
 tmp/
 *.bak
 *.pid
+*.pid.lock
 
-# Markdown Files (ignore all markdown files except README)
-*.md
-!README.md
-!readme.md
-!README.MD
-!**/README.md
-!**/readme.md
-!**/README.MD
+# Keep source, migrations, documentation, sample CSVs and dependency lockfiles
+# trackable. Add local exports/backups under data/ or scratch/ instead of using
+# blanket rules for Markdown, JSON, CSV or SQL files.

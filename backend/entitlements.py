@@ -20,6 +20,8 @@ def provision(db, name='Trader'):
     # Serializes onboarding and money/allowance changes for a user, across API processes.
     profile = db.scalar(select(Profile).where(Profile.user_id == user).with_for_update())
     if not db.get(Setting, (user,'preferences')):
+        from .onboarding import initialize
+        initialize(db)
         if not db.scalar(select(Account.id).where(Account.user_id==user).limit(1)):
             db.add(Account(user_id=user,name='My trading account',broker='Other / manual',currency='INR',initial_balance=0))
         db.add(Setting(user_id=user, key='preferences', value={'currency': 'INR', 'timezone': 'Asia/Kolkata'}))
@@ -69,6 +71,7 @@ def snapshot(db):
 
 
 def public_catalog(db):
+    from .ai_pricing import public_policy
     from .runtime_settings import settings, checkout_ready
     product = settings(db)
     from .db import CreditPack
@@ -82,8 +85,8 @@ def public_catalog(db):
         packs.append(item)
     tasks = []
     for task in db.scalars(select(AITask)):
-        tasks.append({**serialize(task),'advanced_credits':task.credits*product.advanced_credit_multiplier})
-    return {'billing_model':'pay_as_you_go', 'packs':packs, 'tasks':tasks,
+        tasks.append({**serialize(task),'credits':1,'advanced_credits':1,'max_credits':7})
+    return {'billing_model':'pay_as_you_go', 'packs':packs, 'tasks':tasks, 'ai_pricing':public_policy(),
         'features':FEATURE_NAMES, 'upcoming_features':UPCOMING_FEATURE_NAMES,
         'monthly_free_credits':product.monthly_free_credits, 'playbook_creation_credits':product.playbook_creation_credits,
         'reference_credit_paise':product.reference_credit_paise,

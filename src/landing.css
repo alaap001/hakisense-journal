@@ -13,3 +13,33 @@
 @media(max-width:760px){.landing .journal-scene{padding:24px 24px 110px 10px;min-height:0}.landing .lesson-card{bottom:15px}.landing .scene-stamp{bottom:28px}.landing .demo-disclosure{bottom:-8px}}
 
 .landing .hero-copy{align-self:start;padding-top:30px}@media(max-width:760px){.landing .hero-copy{padding-top:0}}
+
+/* Keep primary navigation legible at every desktop size; use a menu on tablets. */
+.landing .landing-nav { height: 84px; gap: 24px; }
+.landing .landing-nav nav { gap: 8px; font-size: 16px; font-weight: 500; color: #34482f; }
+.landing .landing-nav nav a { display: flex; align-items: center; min-height: 44px; padding: 10px 12px; border-radius: 7px; white-space: nowrap; transition: background .15s,color .15s; }
+.landing .landing-nav nav a:hover { background: #e9efdf; color: #203b21; }
+.landing .landing-nav nav a.active { background: #e3edda; color: #264522; font-weight: 600; }
+.landing .landing-nav-actions { gap: 16px; }
+.landing .landing-login { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 8px; font-size: 16px; font-weight: 500; color: #2b4028; white-space: nowrap; }
+.landing .landing-nav-actions .landing-start { min-height: 46px; padding: 12px 16px; font-size: 15px; font-weight: 600; border-color: #aab99a; background: #eef3e5; white-space: nowrap; }
+.landing .landing-nav-actions .landing-start:hover { background: #e1ebd3; }
+.landing .landing-nav a:focus-visible,.landing .landing-mobile-toggle:focus-visible { outline: 3px solid #719a43; outline-offset: 3px; }
+.landing .pricing-page-intro { font-size: 12px; color: #5c6e4f; line-height: 1.6; }
+.landing .pricing-page-intro a { font-size: 14px; }
+@media(max-width:1100px) {
+  .landing .landing-nav nav { display: none; position: absolute; left: 0; right: 0; top: 84px; padding: 16px 24px; background: #f7f7ef; border-bottom: 1px solid #d2dcc7; box-shadow: 0 12px 18px #24351a0a; gap: 4px; }
+  .landing .landing-nav nav.open { display: flex; flex-direction: column; }
+  .landing .landing-nav nav a { min-height: 48px; font-size: 17px; }
+  .landing .landing-mobile-toggle { display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; margin: 0; }
+}
+@media(max-width:760px) {
+  .landing .landing-nav { height: 76px; gap: 12px; }
+  .landing .landing-nav nav { top: 76px; padding: 12px 20px; }
+  .landing .landing-nav-actions { gap: 8px; }
+  .landing .landing-nav-actions .landing-start { display: none; }
+  .landing .landing-brand small { font-size: 8px; letter-spacing: 1.2px; }
+  .landing .landing-login { font-size: 15px; padding-inline: 4px; }
+  .landing .pricing-page-intro { flex-direction: column; gap: 12px; }
+  .landing .pricing-page-intro a { max-width: none; }
+}

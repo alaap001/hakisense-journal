@@ -34,6 +34,8 @@ async def lifespan(app):
             if role[0] != 'hakisense_api' or role[1] or role[2]:
                 raise RuntimeError('Database runtime role must enforce row-level security.')
             db.execute(text('SELECT code FROM journal.credit_packs LIMIT 1'))
+            db.execute(text('SELECT pricing_version FROM journal.ai_jobs LIMIT 1'))
+            db.execute(text('SELECT job_id FROM journal.ai_events LIMIT 1'))
     yield
     if engine:
         engine.dispose()
