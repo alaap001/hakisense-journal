@@ -6,12 +6,12 @@ Replace new subscriptions with one-time INR credit purchases. Everyone can use t
 
 | Pack | Credits | One-time price | Comparison with ₹1/credit |
 | --- | ---: | ---: | --- |
-| First recharge | 50 | ₹21 | 58% discount; once per account, before any successful payment |
+| First recharge | 50 | ₹24 | 52% discount; once per account, before any successful payment |
 | Starter | 50 | ₹50 | Standard reference rate |
 | Review | 600 | ₹199 | 66.8% discount; 3.02× credits per rupee |
 | Deep dive | 4,000 | ₹500 | 87.5% discount; 8× credits per rupee |
 
-The later ₹21 figure takes precedence over the earlier ₹24 suggestion. Do not claim 600 credits is literally 3× 50 credits: the comparison is value per rupee. Compute comparisons from backend catalog amounts, not promotional strings.
+Show the first-recharge offer within the Starter card: ₹24 for eligible first purchases, with the standard ₹50 price struck through and ₹50 thereafter. Keep separate backend pack records for eligibility and checkout. Do not claim 600 credits is literally 3× 50 credits: the comparison is value per rupee. Compute comparisons from backend catalog amounts, not promotional strings.
 
 Keep 50 free monthly credits, refreshed in IST; unused free credits expire. Purchased credits and administrative grants do not expire. Spend free credits first. Advanced AI is available to everyone, with a backend-configurable credit multiplier (initially 3), selectable in the AI coach. Other AI entry points use Standard. Model routes remain per-task/per-mode in the database and are snapshotted into LangGraph jobs.
 

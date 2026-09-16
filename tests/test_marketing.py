@@ -15,7 +15,7 @@ class MarketingCatalog(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         catalog = response.json()
         self.assertNotIn('prices',catalog)
-        self.assertEqual([(p['credits'],p['amount_paise']) for p in catalog['packs']],[(50,2100),(50,5000),(600,19900),(4000,50000)])
+        self.assertEqual([(p['credits'],p['amount_paise']) for p in catalog['packs']],[(50,2400),(50,5000),(600,19900),(4000,50000)])
         self.assertTrue(all('provider_id' not in p for p in catalog['packs']))
         self.assertTrue(all(not p['checkout_available'] for p in catalog['packs']))
         self.assertNotIn('users', catalog)
