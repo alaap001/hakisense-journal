@@ -42,6 +42,8 @@ LangGraph connects a planning agent to deterministic evidence tools and an answe
 
 ## Indian market conventions
 
+Future options work is planned in [Indian options journaling](docs/OPTIONS_JOURNALING_PLAN.md): manual entry, spreadsheet imports, historical contract terms, execution-level accounting, strategies and settlement. This is a plan, not an implemented feature expansion.
+
 - INR amounts and Indian number formatting throughout; reports, imports and credit periods use `Asia/Kolkata`.
 - NSE/BSE shares and index derivatives, MCX and cryptocurrency records; Indian broker account labels include Zerodha, Groww, Upstox, Angel One, Dhan, ICICI Direct, FYERS, CoinDCX, CoinSwitch and Delta Exchange.
 - NSE/BSE futures/options require expiry and the lot size applicable to the recorded contract. Options also require strike and CE/PE. Quantity is in **units**, and the multiplier is **1** for these contracts; lot size is recorded separately to prevent double-counting P&L.

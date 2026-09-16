@@ -71,6 +71,49 @@ Migration `0008` refuses cutover while active mandates, old checkouts or AI jobs
 
 Use a container host with HTTPS termination. The image serves the compiled SPA and API from one origin; it also provides a separate worker command. The API starts without seeding or running migrations.
 
+### Render setup
+
+Create a **Docker Web Service** from the repository root, using `./Dockerfile`. Leave **Docker Command** empty so the image's default web command runs. Set **Health Check Path** to `/api/ready`. The same service serves both the built React app and FastAPI; do not run `npm run dev`, `start.sh`, or a separate Vite process on Render.
+
+Copy the actual public hostname from the Render dashboard. The following uses `YOUR-SERVICE.onrender.com` as a placeholder, not a value to paste unchanged:
+
+```dotenv
+APP_ENV=production
+APP_ORIGIN=https://YOUR-SERVICE.onrender.com
+ALLOWED_HOSTS=YOUR-SERVICE.onrender.com,127.0.0.1
+WEB_CONCURRENCY=1
+DATABASE_URL=<the restricted runtime connection from backend/.env>
+SUPABASE_URL=<your Supabase project URL>
+SUPABASE_PUBLISHABLE_KEY=<your Supabase publishable key>
+OPENROUTER_API_KEY=<your OpenRouter key>
+```
+
+`APP_ORIGIN` needs `https://`; `ALLOWED_HOSTS` contains hostnames only, without a scheme, path or port. If you use a custom domain, set `APP_ORIGIN` to that domain's HTTPS origin and include both its hostname and the Render hostname in `ALLOWED_HOSTS`, along with `127.0.0.1` for the container probe.
+
+Render supplies `PORT` (normally `10000`). The image now reads it for both Uvicorn and its container health check; outside Render, it defaults to `8000`. `WEB_CONCURRENCY` controls API processes and defaults to one. It does not start an AI worker. See [Render port binding](https://render.com/docs/web-services#port-binding), [Docker command settings](https://render.com/docs/docker), and [health checks](https://render.com/docs/health-checks).
+
+The deployment log ending with `Production requires PostgreSQL, an HTTPS APP_ORIGIN and explicit ALLOWED_HOSTS` indicates a failed application configuration check, not a failed frontend build. Missing `APP_ORIGIN` falls back to the local HTTP development URL. Missing `ALLOWED_HOSTS` leaves only local hosts and would reject public requests. The updated validation identifies the offending setting. A later `No open ports detected` message can be a consequence of the application exiting; changing the port alone will not fix missing configuration.
+
+Use the existing `hakisense_app` database login for `DATABASE_URL`, not the Supabase dashboard's `postgres` admin URL. For a shared pooler, the username includes the project suffix, e.g. `hakisense_app.<project-ref>`; use that login's password, not the admin password. If a subsequent deployment reports IPv6/network reachability errors, use the project's supported IPv4 session pooler connection from **Connect**. Do not guess the region/hostname. See [Supabase connection methods](https://supabase.com/docs/guides/database/connecting-to-postgres).
+
+The application's Auth SDK gets its public configuration at runtime through `/api/config`; no `VITE_SUPABASE_*` build variables are needed. `SUPABASE_SECRET_KEY` is not read by the API/worker, and `DIRECT_URL`/`MIGRATION_DATABASE_URL` are only migration/operator credentials. Neither replaces a missing `DATABASE_URL`, `APP_ORIGIN`, or `ALLOWED_HOSTS`. Keep operator/admin credentials out of the web/worker services.
+
+For AI jobs, also create a **Background Worker** from the same repository/Dockerfile, with **Docker Command**:
+
+```text
+python -m backend.worker
+```
+
+Give it `APP_ENV`, `APP_ORIGIN`, `ALLOWED_HOSTS`, `DATABASE_URL`, and `OPENROUTER_API_KEY` as above. Use the web application's origin/hosts, not a worker hostname. The worker has no HTTP endpoint. The app can serve pages without it, but queued AI jobs will not be processed. API and worker logs appear under their respective Render services. See [Render background workers](https://render.com/docs/background-workers).
+
+Before using signup/reset emails, set the Supabase Auth **Site URL** to `APP_ORIGIN` and allow `https://YOUR-SERVICE.onrender.com/auth/callback` and `/auth/reset` under redirect URLs (use the custom domain instead if that is the application origin). See [Supabase redirect configuration](https://supabase.com/docs/guides/auth/redirect-urls).
+
+Deploy the commit containing these changes after saving the variables; an old manually overridden Docker Command will not pick up the new port/process defaults. Confirm `/api/ready` returns `{"status":"ready"}`, `/api/config` returns the expected public Auth configuration, and the worker logs `ai_worker_started`. Check the first actual traceback if startup still fails. A database connection or schema error is a separate next failure; this log does not establish that the credentials or latest migrations have been verified.
+
+Keep migrations as a separate controlled operation using the admin connection. Run `python -m alembic current` and compare with `python -m alembic heads` before deciding whether an upgrade is needed. Do not rerun runtime-role setup or rotate credentials merely to fix this deployment error.
+
+### Docker Compose / other hosts
+
 Configure the deployment environment, then:
 
 ```bash
@@ -79,7 +122,7 @@ docker compose --env-file backend/.env --profile tools run --rm migrate
 docker compose --env-file backend/.env up -d web worker
 ```
 
-The included Compose file exposes the web process on host loopback port `8000`; route your TLS reverse proxy to it and preserve the public Host header. If your container platform provides routing itself, configure its internal service port to `8000` instead of exposing a public development server. Set an edge body limit of 20 MB and apply edge request controls to public endpoints. `/api/health` is liveness; `/api/ready` verifies database connectivity/catalog availability. Production disables interactive API docs and adds CSP/HSTS and other response headers.
+The included Compose file exposes the web process on host loopback port `8000`; route your TLS reverse proxy to it and preserve the public Host header. If your container platform provides routing itself, use its `PORT` value (or the image's `8000` default when none is supplied) instead of exposing a public development server. Set an edge body limit of 20 MB and apply edge request controls to public endpoints. `/api/health` is liveness; `/api/ready` verifies database connectivity/catalog availability. Production disables interactive API docs and adds CSP/HSTS and other response headers.
 
 The image runs without root, excludes environment files and old journal data, and supports a read-only filesystem with a temporary `/tmp`. API and worker receive only explicit runtime variables. The migration container alone receives the admin database connection. Do not copy `DIRECT_URL` or `SUPABASE_SECRET_KEY` into web/worker environments.
 
@@ -113,4 +156,3 @@ For operator validation only:
 ```
 
 The first checks rollback-only RLS fixtures in the configured project. The second reads Auth/model metadata. The third creates and removes a disposable confirmed Auth user; it does not send email. Adding `--ai` makes a paid generation request: one such call already passed, and routine checks should not repeat it. See [VALIDATION.md](VALIDATION.md) for the exact completed scope.
-

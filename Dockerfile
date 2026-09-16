@@ -22,5 +22,6 @@ COPY alembic.ini /app/alembic.ini
 COPY --from=frontend /build/dist /app/dist
 USER hakisense
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready',timeout=4)"
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--no-access-log", "--timeout-graceful-shutdown", "200"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import os, urllib.request; port=int(os.getenv('PORT') or '8000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/api/ready',timeout=4)"
+# Render supplies PORT and WEB_CONCURRENCY at runtime. exec preserves shutdown signals.
+CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port \"${PORT:-8000}\" --workers \"${WEB_CONCURRENCY:-1}\" --no-access-log --timeout-graceful-shutdown 200"]
