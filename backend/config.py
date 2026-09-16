@@ -7,7 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(ROOT / 'backend' / '.env')
+load_dotenv(ROOT / 'backend' / '.env', override=True)
 load_dotenv(ROOT / '.env')
 AI_MODELS = json.loads((ROOT / 'backend' / 'ai_models.json').read_text())
 

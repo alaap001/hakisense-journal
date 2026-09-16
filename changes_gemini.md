@@ -13,8 +13,9 @@ This document details all changes implemented to support **Terms of Service**, *
 | `src/Landing.tsx` | **MODIFIED** | Updated footer links to route directly to internal `/terms`, `/privacy`, and `/refunds` pages. |
 | `src/Help.tsx` | **MODIFIED** | Updated policy links in customer care and footer to route to internal policy pages. |
 | `src/Billing.tsx` | **MODIFIED** | Updated "Refund policy" link in the wallet panel to route directly to `/refunds`. |
-| `backend/runtime_settings.py` | **MODIFIED** | Updated `https_url` validator to permit `localhost` and `127.0.0.1` HTTP URLs during development and test mode, while enforcing strict HTTPS in production. |
-| `backend/.env` | **MODIFIED** | Configured live production URLs for `TERMS_URL`, `PRIVACY_POLICY_URL`, and `REFUND_POLICY_URL`. |
+| `backend/runtime_settings.py` | **MODIFIED** | Updated `https_url` validator for local HTTP URLs; updated `settings(db)` to merge environment defaults into database settings when DB fields are empty/unconfigured, and honor `config.checkout_enabled`. |
+| `backend/config.py` | **MODIFIED** | Added `override=True` to `load_dotenv` for `backend/.env` so reloading the API picks up the latest environment configuration. |
+| `backend/.env` | **MODIFIED** | Configured live production URLs for `TERMS_URL`, `PRIVACY_POLICY_URL`, and `REFUND_POLICY_URL`, and removed duplicate `CHECKOUT_ENABLED=false`. |
 
 ---
 
@@ -138,3 +139,4 @@ When you are ready to deploy to production:
    - Privacy URL: `https://www.hakisense.in/privacy`
    - Refund policy URL: `https://www.hakisense.in/refunds`
 3. **Submit to Razorpay:** In the Razorpay Dashboard under **Settings → Business Website Details**, submit these 3 URLs for merchant compliance review.
+

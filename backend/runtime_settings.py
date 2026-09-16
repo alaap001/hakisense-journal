@@ -56,7 +56,16 @@ def defaults():
 def settings(db):
     from .db import PlatformConfig
     row = db.get(PlatformConfig, 'product')
-    return ProductSettings.model_validate(row.value if row else defaults())
+    base = defaults()
+    if not row:
+        return ProductSettings.model_validate(base)
+    merged = {**base}
+    for k, v in row.value.items():
+        if v not in ('', None):
+            merged[k] = v
+    if config.checkout_enabled:
+        merged['checkout_enabled'] = True
+    return ProductSettings.model_validate(merged)
 
 
 def checkout_blockers(value):
