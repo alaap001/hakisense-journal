@@ -11,4 +11,5 @@ import { App } from './App';
 import './styles.css';
 import './pages.css';
 import './admin.css';
+import './motion.css';
 ReactDOM.createRoot(document.getElementById('root')!).render(<BrowserRouter><App/></BrowserRouter>);

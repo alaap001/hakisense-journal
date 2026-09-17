@@ -41,8 +41,12 @@ def prepare(origin='https://www.hakisense.in',render_host=None):
         set_key(str(source),'RAZORPAY_WEBHOOK_SECRET',values['RAZORPAY_WEBHOOK_SECRET'])
         source.chmod(0o600)
     # A payment overlay for an existing deployment. Preserve its working DB/AI/Auth configuration.
-    keys=('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET')
-    output={key:values.get(key,'') or '' for key in keys}
+    keys = (
+        'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RAZORPAY_WEBHOOK_SECRET',
+        'LEGAL_BUSINESS_NAME', 'LEGAL_BUSINESS_ADDRESS', 'SUPPORT_EMAIL',
+        'TERMS_URL', 'PRIVACY_POLICY_URL', 'REFUND_POLICY_URL'
+    )
+    output = {key: values.get(key, '') or '' for key in keys}
     output.update(APP_ENV='production',APP_ORIGIN=origin,CHECKOUT_ENABLED='true',RAZORPAY_ALLOW_TEST_CHECKOUT='false')
     if render_host:output['ALLOWED_HOSTS']=','.join(hosts)
     path=ROOT/'backend/.env.production'

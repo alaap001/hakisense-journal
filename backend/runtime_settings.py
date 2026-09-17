@@ -48,9 +48,16 @@ class ProductSettings(BaseModel):
 
 
 def defaults():
-    return ProductSettings(support_email=config.support_email, legal_business_name=config.legal_name,
-        legal_business_address=config.legal_address, terms_url=config.terms_url, privacy_url=config.privacy_url,
-        refund_url=config.refund_url, checkout_enabled=config.checkout_enabled).model_dump()
+    origin = config.origin.rstrip('/')
+    return ProductSettings(
+        support_email=config.support_email or 'contact@hakisense.in',
+        legal_business_name=config.legal_name or 'HakiSense',
+        legal_business_address=config.legal_address or 'Sector 14, Sonepat, Haryana',
+        terms_url=config.terms_url or f'{origin}/terms',
+        privacy_url=config.privacy_url or f'{origin}/privacy',
+        refund_url=config.refund_url or f'{origin}/refunds',
+        checkout_enabled=config.checkout_enabled,
+    ).model_dump()
 
 
 def settings(db):

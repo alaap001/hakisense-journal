@@ -1,0 +1,18 @@
+/* Shared interaction motion. Deliberately no global smooth-scroll rule. */
+:root { --ui-ease: cubic-bezier(.22,1,.36,1); }
+.select-menu[data-phase=open], .account-menu[data-phase=open] { animation: ui-menu-in 180ms var(--ui-ease) both; }
+.select-menu[data-phase=closing], .account-menu[data-phase=closing] { animation: ui-menu-out 140ms ease-in both; pointer-events: none; }
+.select-option, .account-menu [role=menuitem] { transition: background-color 120ms, color 120ms; }
+.select-options { scroll-behavior: auto; }
+@keyframes ui-menu-in { from { opacity: 0; transform: translateY(-4px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes ui-menu-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-3px) scale(.99); } }
+/* Progressive enhancement for native disclosures, including help and settings. */
+@supports (interpolate-size: allow-keywords) and (transition-behavior: allow-discrete) {
+  details { interpolate-size: allow-keywords; }
+  details::details-content { block-size: 0; overflow: clip; opacity: 0; transition: block-size 220ms var(--ui-ease), opacity 160ms, content-visibility 220ms allow-discrete; }
+  details[open]::details-content { block-size: auto; opacity: 1; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .select-menu, .account-menu, .select-option, .account-menu [role=menuitem] { animation: none !important; transition: none !important; }
+  details::details-content { transition: none !important; }
+}
