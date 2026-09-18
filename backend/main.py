@@ -62,7 +62,7 @@ async def response_headers(request: Request, call_next):
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     response.headers['X-Frame-Options'] = 'DENY'
-    if request.url.path.startswith('/api'):
+    if request.url.path.startswith('/api') or request.url.path == '/health':
         response.headers['Cache-Control'] = 'no-store'
     if config.environment == 'production':
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
@@ -88,8 +88,9 @@ async def internal_error(request: Request, exc):
     return JSONResponse({'detail': 'Something went wrong. Please try again.', 'request_id': getattr(request.state, 'request_id', '')}, status_code=500)
 
 
-@app.get('/api/health')
-def health():
+@app.api_route('/health', methods=['GET', 'HEAD'])
+@app.api_route('/api/health', methods=['GET', 'HEAD'])
+async def health():
     return {'status': 'ok'}
 
 
